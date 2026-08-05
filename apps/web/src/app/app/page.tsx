@@ -1,11 +1,11 @@
+import { confirmBalance, recordPayment, updateMovement } from '../../actions/financial';
 import {
-  confirmBalance,
-  materializeRecurrence,
-  recordPayment,
-  splitRecurrenceFromHere,
-  updateMovement,
-} from '../../actions/financial';
-import { db, confirmedBalance, financialMovement, financialPayment } from '@organizei/database';
+  db,
+  confirmedBalance,
+  financialMovement,
+  financialPayment,
+  recurrenceRuleVersion,
+} from '@organizei/database';
 import { eq, desc, inArray } from 'drizzle-orm';
 import { familyMembership } from '@organizei/database';
 import Link from 'next/link';
@@ -18,9 +18,23 @@ import type { DailyProjection } from '@organizei/domain';
 import { revalidatePath } from 'next/cache';
 import { ThemeToggle } from '../../components/theme-toggle';
 import { LogoutButton } from '../../components/logout-button';
+import { FinancialMovementDialogs } from '../../components/financial-movement-dialogs';
+import { FinancialPaymentForm } from '../../components/financial-payment-form';
 import { auth } from '../../lib/auth';
+import { materializeSpaceRecurrencesCore } from '../../lib/financial-core';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+
+const moneyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const dateFormatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
+const monthFormatter = new Intl.DateTimeFormat('pt-BR', {
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+const formatMoney = (cents: number) => moneyFormatter.format(cents / 100);
+const formatDate = (date: string) => dateFormatter.format(new Date(`${date}T12:00:00Z`));
+const formatMonth = (month: string) => monthFormatter.format(new Date(`${month}-01T12:00:00Z`));
 
 export default async function Dashboard() {
   const session = await auth.api.getSession({
@@ -51,6 +65,14 @@ export default async function Dashboard() {
   }
 
   const spaceId = membership.spaceId;
+  const todayCivil = toCivilDate(new Date(), 'America/Maceio');
+  const materializationHorizon = new Date(`${todayCivil}T00:00:00Z`);
+  materializationHorizon.setUTCFullYear(materializationHorizon.getUTCFullYear() + 1);
+  await materializeSpaceRecurrencesCore(
+    spaceId,
+    materializationHorizon.toISOString().slice(0, 10),
+    user.id,
+  );
 
   // 1. Fetch confirmed balances and movements
   const lastBalance = await db.query.confirmedBalance.findFirst({
@@ -70,6 +92,15 @@ export default async function Dashboard() {
         ),
       })
     : [];
+  const recurrenceRuleIds = movements.flatMap((movement) =>
+    movement.recurrenceRuleVersionId ? [movement.recurrenceRuleVersionId] : [],
+  );
+  const recurrenceRules = recurrenceRuleIds.length
+    ? await db.query.recurrenceRuleVersion.findMany({
+        where: inArray(recurrenceRuleVersion.id, recurrenceRuleIds),
+      })
+    : [];
+  const recurrenceById = new Map(recurrenceRules.map((rule) => [rule.id, rule]));
 
   // 2. Map schema objects to core domain structures
   const normalizedMovements = movements.map((m) => ({
@@ -90,8 +121,6 @@ export default async function Dashboard() {
     updatedAt: m.updatedAt,
     version: m.version,
   }));
-
-  const todayCivil = toCivilDate(new Date(), 'America/Maceio');
 
   const activeBalance = lastBalance
     ? {
@@ -151,26 +180,6 @@ export default async function Dashboard() {
     revalidatePath('/app');
   }
 
-  async function handleRealizeMovement(formData: FormData) {
-    'use server';
-    const movementId = formData.get('movementId') as string;
-    const version = parseInt(formData.get('version') as string);
-    const mov = movements.find((m) => m.id === movementId);
-    if (!mov) return;
-
-    await updateMovement(
-      spaceId,
-      movementId,
-      {
-        status: 'realized',
-        realizedDate: mov.plannedDate,
-        realizedAmountCents: mov.expectedAmountCents,
-      },
-      version,
-    );
-    revalidatePath('/app');
-  }
-
   async function handleCancelMovement(formData: FormData) {
     'use server';
     const movementId = formData.get('movementId') as string;
@@ -186,35 +195,17 @@ export default async function Dashboard() {
     revalidatePath('/app');
   }
 
-  async function handlePayment(formData: FormData) {
+  async function handleRealizeMovement(formData: FormData) {
     'use server';
-    const movementId = formData.get('movementId') as string;
-    const version = Number.parseInt(formData.get('version') as string, 10);
-    const amount = Number.parseFloat(formData.get('amount') as string);
-    const paidDate = formData.get('paidDate') as string;
-    if (!Number.isFinite(amount) || amount <= 0) return;
-    await recordPayment(spaceId, movementId, Math.round(amount * 100), paidDate, version);
-    revalidatePath('/app');
-  }
-
-  async function handleSplitRecurrence(formData: FormData) {
-    'use server';
-    const movementId = formData.get('movementId') as string;
+    const movementId = String(formData.get('movementId'));
+    const version = Number(formData.get('version'));
     const movement = movements.find((item) => item.id === movementId);
-    if (!movement?.recurrenceRuleVersionId) return;
-    const rule = await splitRecurrenceFromHere(
-      spaceId,
-      movement.recurrenceRuleVersionId,
-      movement.plannedDate,
-      {
-        description: movement.description,
-        direction: movement.direction,
-        expectedAmountCents: movement.expectedAmountCents,
-      },
-    );
-    const horizon = new Date(`${movement.plannedDate}T00:00:00Z`);
-    horizon.setUTCFullYear(horizon.getUTCFullYear() + 1);
-    await materializeRecurrence(spaceId, rule.id, horizon.toISOString().slice(0, 10));
+    if (!movement) return;
+    const paid = payments
+      .filter((payment) => payment.movementId === movementId)
+      .reduce((total, payment) => total + payment.amountCents, 0);
+    const remaining = movement.expectedAmountCents - paid;
+    if (remaining > 0) await recordPayment(spaceId, movementId, remaining, todayCivil, version);
     revalidatePath('/app');
   }
 
@@ -237,14 +228,14 @@ export default async function Dashboard() {
           <span className="text-text-muted text-xs uppercase tracking-wider">
             Saldo Atual Projetado
           </span>
-          <p className="mt-1 text-3xl font-semibold">R$ {(todayBalanceCents / 100).toFixed(2)}</p>
+          <p className="mt-1 text-3xl font-semibold">{formatMoney(todayBalanceCents)}</p>
           <p className="text-text-muted mt-1 text-xs">
-            Menor saldo nos próximos 30 dias: R$ {(projection.lowestBalanceCents / 100).toFixed(2)}
+            Menor saldo nos próximos 30 dias: {formatMoney(projection.lowestBalanceCents)}
           </p>
           {lastBalance ? (
             <p className="text-xxs text-text-muted mt-1">
-              Último checkpoint de R$ {(lastBalance.amountCents / 100).toFixed(2)} em{' '}
-              {toCivilDate(lastBalance.confirmedAt)}
+              Último checkpoint de {formatMoney(lastBalance.amountCents)} em{' '}
+              {formatDate(toCivilDate(lastBalance.confirmedAt))}
             </p>
           ) : (
             <p className="text-xxs text-text-muted mt-1">Sem checkpoint de saldo confirmado.</p>
@@ -281,11 +272,11 @@ export default async function Dashboard() {
         <div className="border-border bg-surface divide-border divide-y overflow-hidden rounded border">
           {monthlyProjection.map((month) => (
             <div key={month.month} className="flex items-center justify-between px-3 py-2 text-sm">
-              <span>{month.month}</span>
+              <span className="capitalize">{formatMonth(month.month)}</span>
               <span
                 className={month.balanceCents < 0 ? 'text-danger font-semibold' : 'font-semibold'}
               >
-                R$ {(month.balanceCents / 100).toFixed(2)}
+                {formatMoney(month.balanceCents)}
               </span>
             </div>
           ))}
@@ -299,8 +290,9 @@ export default async function Dashboard() {
         </h2>
         {projection.firstNegativeDate && (
           <div className="border-danger bg-danger/10 text-danger mb-3 rounded border p-3 text-xs">
-            Atenção: Saldo projetado ficará negativo a partir de {projection.firstNegativeDate}.
-            Menor saldo previsto: R$ {(projection.lowestBalanceCents / 100).toFixed(2)}
+            Atenção: Saldo projetado ficará negativo a partir de{' '}
+            {formatDate(projection.firstNegativeDate)}. Menor saldo previsto:{' '}
+            {formatMoney(projection.lowestBalanceCents)}
           </div>
         )}
         <div
@@ -317,10 +309,8 @@ export default async function Dashboard() {
                   isNegative ? 'border-danger bg-danger/10 text-danger' : 'border-border bg-surface'
                 }`}
               >
-                <span className="text-xxs text-text-muted">{day.date.substring(5)}</span>
-                <span className="mt-1 text-sm font-semibold">
-                  R$ {(day.balanceCents / 100).toFixed(2)}
-                </span>
+                <span className="text-xxs text-text-muted">{formatDate(day.date)}</span>
+                <span className="mt-1 text-sm font-semibold">{formatMoney(day.balanceCents)}</span>
               </div>
             );
           })}
@@ -348,13 +338,15 @@ export default async function Dashboard() {
         ) : (
           <div className="space-y-4">
             {timelineDays.map(([date, dayMovements]) => (
-              <section key={date} aria-label={`Movimentações de ${date}`} className="space-y-2">
+              <section
+                key={date}
+                aria-label={`Movimentações de ${formatDate(date)}`}
+                className="space-y-2"
+              >
                 <header className="text-text-muted flex items-center justify-between text-xs">
-                  <span>{date}</span>
+                  <span>{formatDate(date)}</span>
                   {projectedBalances.has(date) && (
-                    <span>
-                      Saldo ao fim do dia: R$ {(projectedBalances.get(date)! / 100).toFixed(2)}
-                    </span>
+                    <span>Saldo ao fim do dia: {formatMoney(projectedBalances.get(date)!)}</span>
                   )}
                 </header>
                 {dayMovements.map((mov) => {
@@ -372,25 +364,28 @@ export default async function Dashboard() {
                   return (
                     <div
                       key={mov.id}
-                      className="border-border bg-surface flex items-center justify-between rounded border p-3 transition-colors"
+                      className="border-border bg-surface flex flex-col gap-3 rounded border p-3 transition-colors sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="flex flex-col gap-0.5">
                         <p className="text-text text-sm font-medium">{mov.description}</p>
                         <p className="text-xxs text-text-muted">
-                          {isIncome ? 'Receita' : 'Despesa'} • {mov.plannedDate}
-                          {isRealized && mov.realizedDate && ` • Realizado em ${mov.realizedDate}`}
+                          {isIncome ? 'Receita' : 'Despesa'} • {formatDate(mov.plannedDate)}
+                          {isRealized &&
+                            mov.realizedDate &&
+                            ` • Realizado em ${formatDate(mov.realizedDate)}`}
                         </p>
                         {paidCents > 0 && !isRealized && (
                           <p className="text-xxs text-warning">
-                            Restam R$ {(remainingCents / 100).toFixed(2)}
+                            Restam {formatMoney(remainingCents)}
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         <span
                           className={`text-sm font-semibold ${isIncome ? 'text-positive' : 'text-danger'}`}
                         >
-                          {isIncome ? '+' : '-'} R$ {(displayAmount / 100).toFixed(2)}
+                          {isIncome ? '+ ' : '- '}
+                          {formatMoney(displayAmount)}
                         </span>
                         <span
                           className={`text-xxs rounded-full px-2 py-0.5 font-medium ${
@@ -403,52 +398,46 @@ export default async function Dashboard() {
                         >
                           {isRealized ? 'Realizado' : isCanceled ? 'Cancelado' : 'Pendente'}
                         </span>
-                        <div className="flex gap-1">
+                        <div className="flex flex-wrap gap-2">
                           {!isRealized && !isCanceled && (
-                            <form action={handlePayment} className="flex gap-1">
-                              <input type="hidden" name="movementId" value={mov.id} />
-                              <input type="hidden" name="version" value={mov.version} />
-                              <input type="hidden" name="paidDate" value={todayCivil} />
-                              <input
-                                aria-label={`Valor pago para ${mov.description}`}
-                                name="amount"
-                                type="number"
-                                min="0.01"
-                                max={(remainingCents / 100).toFixed(2)}
-                                step="0.01"
-                                required
-                                className="border-border bg-background w-20 rounded border px-1 text-xs"
-                              />
-                              <button
-                                type="submit"
-                                className="border-border bg-background text-xxs hover:bg-surface-elevated text-text rounded border px-2 py-1 transition-colors"
-                              >
-                                Pagar
-                              </button>
-                            </form>
+                            <FinancialPaymentForm
+                              spaceId={spaceId}
+                              movementId={mov.id}
+                              version={mov.version}
+                              description={mov.description}
+                              paidDate={todayCivil}
+                              remainingCents={remainingCents}
+                            />
                           )}
-                          {!isRealized && !isCanceled && mov.recurrenceRuleVersionId && (
-                            <form action={handleSplitRecurrence}>
-                              <input type="hidden" name="movementId" value={mov.id} />
-                              <button
-                                type="submit"
-                                className="border-border bg-background text-xxs hover:bg-surface-elevated text-text rounded border px-2 py-1 transition-colors"
-                              >
-                                Daqui em diante
-                              </button>
-                            </form>
-                          )}
-                          {!isRealized && !isCanceled && mov.status === 'pending' && (
+                          {!isRealized && !isCanceled && remainingCents > 0 && (
                             <form action={handleRealizeMovement}>
                               <input type="hidden" name="movementId" value={mov.id} />
                               <input type="hidden" name="version" value={mov.version} />
                               <button
                                 type="submit"
-                                className="border-border bg-background text-xxs hover:bg-surface-elevated text-text rounded border px-2 py-1 transition-colors"
+                                className="border-border bg-background text-text hover:bg-surface-elevated min-h-11 rounded border px-3 text-xs font-semibold"
                               >
                                 Realizar
                               </button>
                             </form>
+                          )}
+                          {!isRealized && !isCanceled && (
+                            <FinancialMovementDialogs
+                              spaceId={spaceId}
+                              movement={{
+                                id: mov.id,
+                                recurrenceRuleVersionId: mov.recurrenceRuleVersionId,
+                                cadence: mov.recurrenceRuleVersionId
+                                  ? (recurrenceById.get(mov.recurrenceRuleVersionId)?.cadence ??
+                                    'monthly')
+                                  : null,
+                                version: mov.version,
+                                description: mov.description,
+                                direction: mov.direction,
+                                expectedAmountCents: mov.expectedAmountCents,
+                                plannedDate: mov.plannedDate,
+                              }}
+                            />
                           )}
                           {!isRealized && !isCanceled && (
                             <form action={handleCancelMovement}>

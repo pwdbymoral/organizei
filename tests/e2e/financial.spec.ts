@@ -114,13 +114,13 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     // Verify accessibility of dashboard @a11y
     expect(await new AxeBuilder({ page: pageA }).analyze()).toHaveProperty('violations', []);
 
-    // Confirm initial state (R$ 0.00)
-    await expect(pageA.getByText('R$ 0.00').first()).toBeVisible();
+    // Confirm initial state (R$ 0,00)
+    await expect(pageA.getByText('R$ 0,00').first()).toBeVisible();
 
     // --- Step 2: Confirm new balance ---
     await pageA.getByPlaceholder('Ajustar saldo (R$)').fill('100.00');
     await pageA.getByRole('button', { name: 'Confirmar' }).click();
-    await expect(pageA.getByText('R$ 100.00').first()).toBeVisible();
+    await expect(pageA.getByText('R$ 100,00').first()).toBeVisible();
 
     // --- Step 3: Add transactions (Income and Expense) ---
     await pageA.getByRole('link', { name: '+ Movimentação' }).click();
@@ -136,7 +136,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageA.getByRole('button', { name: 'Salvar' }).click();
 
     // Verify redirect and updated projection balance (100 + 50 = 150)
-    await expect(pageA.getByText('R$ 150.00').first()).toBeVisible();
+    await expect(pageA.getByText('R$ 150,00').first()).toBeVisible();
     await expect(pageA.getByText('Salário Mensal')).toBeVisible();
 
     // Add Expense (that makes projection drop, we will set a future one to check projection)
@@ -147,9 +147,32 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageA.getByLabel('Data Planejada').fill(today);
     await pageA.getByRole('button', { name: 'Salvar' }).click();
 
-    // Balance should be R$ 120.00 (150 - 30)
-    await expect(pageA.getByText('R$ 120.00').first()).toBeVisible();
+    // Balance should be R$ 120,00 (150 - 30)
+    await expect(pageA.getByText('R$ 120,00').first()).toBeVisible();
     await expect(pageA.getByText('Conta de Luz')).toBeVisible();
+
+    // Recurring movement plus an occurrence-only exception must remain operable on mobile.
+    await pageA.getByRole('link', { name: '+ Movimentação' }).click();
+    await pageA.getByLabel('Repetição').selectOption('monthly');
+    await pageA.getByLabel('Descrição').fill('Mensalidade');
+    await pageA.getByLabel('Valor (R$)').fill('20,00');
+    await pageA.getByLabel('Data planejada').fill(today);
+    await pageA.getByRole('button', { name: 'Salvar' }).click();
+    const recurringEntry = pageA.getByText('Mensalidade', { exact: true }).first();
+    await expect(recurringEntry).toBeVisible();
+
+    const recurringCard = recurringEntry.locator('xpath=../..');
+    await recurringCard.getByRole('button', { name: 'Editar esta' }).click();
+    const occurrenceDialog = pageA.getByRole('dialog', { name: 'Editar esta ocorrência' });
+    await expect(occurrenceDialog).toBeVisible();
+    await occurrenceDialog.getByLabel('Descrição').fill('Mensalidade ajustada');
+    await occurrenceDialog.getByRole('button', { name: 'Salvar ocorrência' }).click();
+    await expect(pageA.getByText('Mensalidade ajustada', { exact: true }).first()).toBeVisible();
+
+    await pageA.setViewportSize({ width: 375, height: 800 });
+    await expect
+      .poll(() => pageA.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+      .toBe(true);
 
     // --- Step 5: Login User B (same space, different context) ---
     const contextB = await browser.newContext();
@@ -162,7 +185,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
 
     // User B should see Space 1 data
     await expect(pageB.getByText('Espaço familiar compartilhado')).toBeVisible({ timeout: 15000 });
-    await expect(pageB.getByText('R$ 120.00').first()).toBeVisible();
+    await expect(pageB.getByText('R$ 120,00').first()).toBeVisible();
     await expect(pageB.getByText('Salário Mensal')).toBeVisible();
 
     // --- Step 6: User B realizes a transaction ---
@@ -183,7 +206,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
 
     // User C should see clean/empty state for Space 2
     await expect(pageC.getByText('Espaço familiar compartilhado')).toBeVisible({ timeout: 15000 });
-    await expect(pageC.getByText('R$ 0.00').first()).toBeVisible();
+    await expect(pageC.getByText('R$ 0,00').first()).toBeVisible();
     await expect(pageC.getByText('Nenhuma movimentação cadastrada.')).toBeVisible();
 
     // Verify User C cannot see Space 1 transactions
