@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with: { node-version: 24.16.0, cache: pnpm }
       - run: corepack enable && pnpm install --frozen-lockfile && pnpm verify
   e2e:
@@ -35,7 +35,7 @@ jobs:
       BETTER_AUTH_URL: http://127.0.0.1:3000
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with: { node-version: 24.16.0, cache: pnpm }
       - run: corepack enable && pnpm install --frozen-lockfile && pnpm db:migrate && pnpm db:seed
       - run: pnpm exec playwright install --with-deps chromium webkit && pnpm test:e2e
