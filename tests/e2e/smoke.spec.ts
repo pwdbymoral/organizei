@@ -14,6 +14,7 @@ test('manifest and offline page are available @pwa', async ({ page }) => {
 test('authentication, protected route, theme and logout @a11y @pwa', async ({ page }) => {
   await page.goto('/app');
   await expect(page).toHaveURL(/\/login/);
+  await page.waitForLoadState('networkidle');
   await page.getByLabel('E-mail').fill('ana@example.test');
   await page.getByLabel('Senha').fill('senha-sintetica-segura-123');
   await page.getByRole('button', { name: 'Entrar' }).click();
