@@ -8,7 +8,7 @@
     "pnpm": ">=11.0.0"
   },
   "scripts": {
-    "dev": "pnpm --filter @organizei/web dev",
+    "dev": "bash scripts/dev.sh",
     "setup": "bash scripts/setup.sh",
     "build": "pnpm --filter @organizei/web build",
     "start": "pnpm --filter @organizei/web start",

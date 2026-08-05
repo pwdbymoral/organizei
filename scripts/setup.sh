@@ -32,4 +32,9 @@ for attempt in $(seq 1 30); do
 done
 
 pnpm db:migrate
+if [ -f .env.local ]; then
+  cp .env.local apps/web/.env.local
+elif [ -f .env ]; then
+  cp .env apps/web/.env.local
+fi
 echo "Ambiente pronto. Execute 'pnpm dev' para iniciar o app."
