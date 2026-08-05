@@ -220,6 +220,10 @@ export function calculateDailyProjectionWithPayments(
   for (const movement of movements) {
     if (movement.status === 'canceled') continue;
     const movementPayments = paymentsByMovement.get(movement.id) ?? [];
+    if (movement.status === 'realized' && movementPayments.length === 0) {
+      events.push(movement);
+      continue;
+    }
     const remaining = remainingAmountCents(movement.expectedAmountCents, movementPayments);
     for (const payment of movementPayments) {
       events.push({
@@ -232,7 +236,7 @@ export function calculateDailyProjectionWithPayments(
         realizedDate: payment.paidDate,
       });
     }
-    if (remaining > 0) {
+    if (movement.status === 'pending' && remaining > 0) {
       events.push({
         ...movement,
         id: `${movement.id}:remaining`,
@@ -276,10 +280,14 @@ export function generateRecurrenceDates(rule: RecurrenceRuleVersion, horizonEnd:
   }
   const finalDate = [horizonEnd, rule.effectiveUntil].filter(Boolean).sort()[0]!;
   const dates: string[] = [];
-  for (let current = rule.effectiveFrom, sequence = 1; current <= finalDate; sequence += 1) {
+  for (let sequence = 1; ; sequence += 1) {
     if (rule.maxOccurrences && sequence > rule.maxOccurrences) break;
+    const current =
+      rule.cadence === 'weekly'
+        ? addCivilDays(rule.effectiveFrom, (sequence - 1) * 7)
+        : addCivilMonths(rule.effectiveFrom, sequence - 1);
+    if (current > finalDate) break;
     dates.push(current);
-    current = rule.cadence === 'weekly' ? addCivilDays(current, 7) : addCivilMonths(current, 1);
   }
   return dates;
 }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
 import {
   calculateDailyProjection,
+  calculateDailyProjectionWithPayments,
   calculateMonthlyProjection,
   generateRecurrenceDates,
   remainingAmountCents,
@@ -71,7 +72,7 @@ describe('DailyProjectionEngine invariants', () => {
         },
         '2025-04-30',
       ),
-    ).toEqual(['2025-01-31', '2025-02-28', '2025-03-28', '2025-04-28']);
+    ).toEqual(['2025-01-31', '2025-02-28', '2025-03-31', '2025-04-30']);
   });
 
   it('derives remaining partial-payment balance and rejects overpayment', () => {
@@ -85,6 +86,40 @@ describe('DailyProjectionEngine invariants', () => {
         { id: 'p1', movementId: 'm1', amountCents: 1_001, paidDate: '2025-01-01' },
       ]),
     ).toThrow();
+  });
+
+  it('does not project a realized movement as a pending balance', () => {
+    const result = calculateDailyProjectionWithPayments(
+      {
+        spaceId: 'space-1',
+        amountCents: 1_000,
+        confirmedAt: new Date('2025-01-01T00:00:00Z'),
+        authorId: 'user-1',
+        createdAt: new Date('2025-01-01T00:00:00Z'),
+      },
+      '2025-01-01',
+      [
+        {
+          id: 'realized',
+          spaceId: 'space-1',
+          description: 'Conta paga',
+          direction: 'expense',
+          expectedAmountCents: 400,
+          plannedDate: '2025-01-02',
+          status: 'realized',
+          realizedAmountCents: 400,
+          realizedDate: '2025-01-02',
+          createdBy: 'user-1',
+          updatedBy: 'user-1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          version: 1,
+        },
+      ],
+      [],
+      3,
+    );
+    expect(result.daily.map((day) => day.balanceCents)).toEqual([1_000, 600, 600]);
   });
 
   it('aggregates a twelve-month view from daily projection', () => {

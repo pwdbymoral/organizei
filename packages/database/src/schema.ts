@@ -8,6 +8,7 @@ import {
   integer,
   date,
   check,
+  foreignKey,
   pgEnum,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
@@ -188,6 +189,11 @@ export const financialMovement = pgTable(
       table.recurrenceRuleVersionId,
       table.occurrenceSequence,
     ),
+    foreignKey({
+      columns: [table.recurrenceRuleVersionId],
+      foreignColumns: [recurrenceRuleVersion.id],
+      name: 'financial_movements_recurrence_rule_version_id_fk',
+    }).onDelete('cascade'),
   ],
 );
 

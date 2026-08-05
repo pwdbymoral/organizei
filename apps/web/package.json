@@ -12,6 +12,7 @@
     "@organizei/database": "workspace:*",
     "@organizei/domain": "workspace:*",
     "@organizei/ui": "workspace:*",
+    "@radix-ui/react-dialog": "^1.1.23",
     "better-auth": "1.6.26",
     "clsx": "2.1.1",
     "drizzle-orm": "0.45.2",

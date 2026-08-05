@@ -8,11 +8,12 @@ import {
   recurrenceRuleVersion,
   recurrenceSeries,
 } from '@organizei/database';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, gte, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import {
   generateRecurrenceDates,
   remainingAmountCents,
+  toCivilDate,
   type RecurrenceCadence,
 } from '@organizei/domain';
 
@@ -221,6 +222,24 @@ export async function materializeRecurrenceCore(
   });
 }
 
+/** Keeps active recurrence occurrences available through the current projection horizon. */
+export async function materializeSpaceRecurrencesCore(
+  spaceId: string,
+  horizonEnd: string,
+  userId: string,
+) {
+  assertCivilDate(horizonEnd, 'Horizonte');
+  await verifyMembership(spaceId, userId);
+  const rules = await db
+    .select({ id: recurrenceRuleVersion.id })
+    .from(recurrenceRuleVersion)
+    .innerJoin(recurrenceSeries, eq(recurrenceRuleVersion.seriesId, recurrenceSeries.id))
+    .where(eq(recurrenceSeries.spaceId, spaceId));
+  for (const rule of rules) {
+    await materializeRecurrenceCore(spaceId, rule.id, horizonEnd, userId);
+  }
+}
+
 export async function splitRecurrenceFromHereCore(
   spaceId: string,
   ruleId: string,
@@ -241,6 +260,7 @@ export async function splitRecurrenceFromHereCore(
   assertCivilDate(effectiveFrom, 'Data da exceção');
   await verifyMembership(spaceId, userId);
   return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${ruleId}))`);
     const current = await tx.query.recurrenceRuleVersion.findFirst({
       where: eq(recurrenceRuleVersion.id, ruleId),
     });
@@ -255,10 +275,41 @@ export async function splitRecurrenceFromHereCore(
       where: and(eq(recurrenceSeries.id, current.seriesId), eq(recurrenceSeries.spaceId, spaceId)),
     });
     if (!series) throw new Error('Not found');
+    if (current.effectiveUntil && effectiveFrom > current.effectiveUntil) {
+      throw new Error('A série foi alterada por outra pessoa. Atualize e tente novamente.');
+    }
     if (effectiveFrom <= current.effectiveFrom)
       throw new Error('A exceção deve ser posterior ao início da série.');
     const previousDay = new Date(`${effectiveFrom}T00:00:00Z`);
     previousDay.setUTCDate(previousDay.getUTCDate() - 1);
+    const materializedOccurrence = await tx.query.financialMovement.findFirst({
+      where: and(
+        eq(financialMovement.recurrenceRuleVersionId, ruleId),
+        eq(financialMovement.plannedDate, effectiveFrom),
+      ),
+    });
+    const occurrenceSequence =
+      materializedOccurrence?.occurrenceSequence ??
+      generateRecurrenceDates(current, effectiveFrom).findIndex((date) => date === effectiveFrom) +
+        1;
+    if (occurrenceSequence < 1) throw new Error('A data não pertence à recorrência.');
+    const nextEffectiveUntil =
+      changes.effectiveUntil === undefined ? current.effectiveUntil : changes.effectiveUntil;
+    if (nextEffectiveUntil) {
+      assertCivilDate(nextEffectiveUntil, 'Data final');
+      if (nextEffectiveUntil < effectiveFrom)
+        throw new Error('Data final deve ser posterior à data da exceção.');
+    }
+    const nextMaxOccurrences =
+      changes.maxOccurrences === undefined
+        ? current.maxOccurrences === null
+          ? null
+          : Math.max(1, current.maxOccurrences - occurrenceSequence + 1)
+        : changes.maxOccurrences;
+    if (nextMaxOccurrences !== null && nextMaxOccurrences !== undefined) {
+      if (!Number.isSafeInteger(nextMaxOccurrences) || nextMaxOccurrences < 1)
+        throw new Error('Quantidade de ocorrências inválida.');
+    }
     await tx
       .update(recurrenceRuleVersion)
       .set({ effectiveUntil: previousDay.toISOString().slice(0, 10) })
@@ -270,6 +321,7 @@ export async function splitRecurrenceFromHereCore(
         and(
           eq(financialMovement.recurrenceRuleVersionId, ruleId),
           eq(financialMovement.status, 'pending'),
+          gte(financialMovement.plannedDate, effectiveFrom),
         ),
       );
     const [next] = await tx
@@ -279,8 +331,8 @@ export async function splitRecurrenceFromHereCore(
         seriesId: current.seriesId,
         version: current.version + 1,
         effectiveFrom,
-        effectiveUntil: changes.effectiveUntil ?? null,
-        maxOccurrences: changes.maxOccurrences ?? null,
+        effectiveUntil: nextEffectiveUntil,
+        maxOccurrences: nextMaxOccurrences,
         description: input.description,
         direction: input.direction,
         expectedAmountCents: input.expectedAmountCents,
@@ -309,6 +361,7 @@ export async function recordPaymentCore(
 ) {
   assertPositiveCents(amountCents, 'Pagamento');
   assertCivilDate(paidDate, 'Data do pagamento');
+  if (paidDate > toCivilDate(new Date())) throw new Error('Data do pagamento não pode ser futura.');
   await verifyMembership(spaceId, userId);
   return db.transaction(async (tx) => {
     const existing = await tx.query.financialMovement.findFirst({
@@ -369,6 +422,14 @@ export async function updateMovementCore(
   if (!existing) throw new Error('Not found');
   if (existing.version !== version) throw new Error('Conflict');
   if (existing.status !== 'pending') throw new Error('Movimentação já finalizada.');
+
+  if (data.status === 'canceled') {
+    const payments = await db.query.financialPayment.findMany({
+      where: eq(financialPayment.movementId, movementId),
+    });
+    if (payments.length > 0)
+      throw new Error('Não é possível cancelar uma movimentação com pagamentos.');
+  }
 
   const input: MovementUpdate = { ...data };
   if (input.description !== undefined) {

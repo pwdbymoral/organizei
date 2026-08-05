@@ -240,7 +240,7 @@ describe('Financial Domain Integration', () => {
     ).rejects.toThrow();
   });
 
-  it('versions a recurrence from an occurrence without changing completed history', async () => {
+  it('versions a recurrence without changing prior pending history or its remaining installment limit', async () => {
     const rule = await createRecurrenceCore(
       space1,
       {
@@ -250,6 +250,7 @@ describe('Financial Domain Integration', () => {
         plannedDate: '2025-01-01',
         cadence: 'monthly',
         effectiveFrom: '2025-01-01',
+        maxOccurrences: 3,
       },
       userA,
     );
@@ -268,5 +269,16 @@ describe('Financial Domain Integration', () => {
     );
     expect(next.version).toBe(2);
     expect(next.effectiveFrom).toBe('2025-02-01');
+    expect(next.maxOccurrences).toBe(2);
+    const { financialMovement } = await import('../../packages/database/src/index');
+    const original = (await db.select().from(financialMovement)).filter(
+      (movement) => movement.recurrenceRuleVersionId === rule.id,
+    );
+    expect(original.find((movement) => movement.plannedDate === '2025-01-01')?.status).toBe(
+      'pending',
+    );
+    expect(original.find((movement) => movement.plannedDate === '2025-02-01')?.status).toBe(
+      'canceled',
+    );
   });
 });
