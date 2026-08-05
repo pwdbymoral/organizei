@@ -22,6 +22,46 @@ async function main(): Promise<void> {
       if (pnpmPosition < 0 || setupNodePosition < 0 || pnpmPosition > setupNodePosition)
         throw new Error(`${file}: pnpm/action-setup must precede setup-node cache.`);
     }
+
+    if (file === 'ci.yml') {
+      const pkg = JSON.parse(await readFile('package.json', 'utf8'));
+      const expectedPlaywrightVersion =
+        pkg.devDependencies?.['@playwright/test'] || pkg.dependencies?.['@playwright/test'];
+      if (!expectedPlaywrightVersion)
+        throw new Error('Could not find @playwright/test version in package.json');
+
+      const imageRegex = new RegExp(
+        `image:\\s*mcr\\.microsoft\\.com/playwright:v${expectedPlaywrightVersion}-noble(?:@sha256:[a-f0-9]{64})?`,
+      );
+      if (!imageRegex.test(content)) {
+        throw new Error(
+          `ci.yml: E2E container image must be exactly mcr.microsoft.com/playwright:v${expectedPlaywrightVersion}-noble (optionally with sha256 digest).`,
+        );
+      }
+
+      if (!/options:\s*--user\s+\d+/.test(content)) {
+        throw new Error(
+          'ci.yml: E2E container must specify a non-root user (options: --user 1001).',
+        );
+      }
+
+      if (/playwright\s+install/.test(content)) {
+        throw new Error('ci.yml: "playwright install" is forbidden.');
+      }
+
+      const e2eSection = content.split('e2e:')[1];
+      if (e2eSection) {
+        const timeoutMatch = e2eSection.match(/timeout-minutes:\s*(\d+)/);
+        if (timeoutMatch) {
+          const timeout = parseInt(timeoutMatch[1], 10);
+          if (timeout > 25) {
+            throw new Error(`ci.yml: E2E job timeout-minutes must be at most 25, got ${timeout}`);
+          }
+        } else {
+          throw new Error('ci.yml: E2E job must specify timeout-minutes.');
+        }
+      }
+    }
   }
   console.log(`Validated ${files.length} workflow files.`);
 }
