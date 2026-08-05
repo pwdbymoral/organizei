@@ -16,6 +16,7 @@ import { redirect } from 'next/navigation';
 import { matchesTimelineFilters, parseTimelineFilters } from '../../lib/financial-filters';
 import { EmptyState, StatusBadge } from '@organizei/ui';
 import { ForecastChart } from '../../components/forecast-chart';
+import { AppNavigation } from '../../components/app-navigation';
 
 const moneyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
@@ -526,15 +527,16 @@ function OverviewDashboard({ data }: { data: Awaited<ReturnType<typeof getDashbo
             <LogoutButton />
           </div>
         </header>
+        <AppNavigation />
 
         <section className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
           <article className="bg-primary rounded-3xl p-6 text-white shadow-sm sm:p-8">
-            <p className="text-sm text-white/70">Saldo previsto para hoje</p>
+            <p className="text-sm text-white/70">Saldo disponível</p>
             <p className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
-              {formatMoney(todayBalanceCents)}
+              {formatMoney(data.activeBalance.amountCents)}
             </p>
             <div className="mt-6 flex flex-wrap gap-3 text-sm text-white/80">
-              <span>Saldo confirmado: {formatMoney(data.activeBalance.amountCents)}</span>
+              <span>Hoje, após o planejado: {formatMoney(todayBalanceCents)}</span>
               <span className="text-white/40">•</span>
               <span>Menor saldo: {formatMoney(data.projection.lowestBalanceCents)}</span>
             </div>

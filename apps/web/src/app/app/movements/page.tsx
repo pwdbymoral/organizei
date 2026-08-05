@@ -13,6 +13,7 @@ import { recordPayment, updateMovement } from '../../../actions/financial';
 import { revalidatePath } from 'next/cache';
 import { FinancialMovementDialogs } from '../../../components/financial-movement-dialogs';
 import { FinancialPaymentForm } from '../../../components/financial-payment-form';
+import { AppNavigation } from '../../../components/app-navigation';
 
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const date = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
@@ -80,6 +81,7 @@ export default async function MovementsPage({
             <LogoutButton />
           </div>
         </header>
+        <AppNavigation />
         <div className="flex items-center justify-between">
           <span className="text-text-muted text-sm">{movements.length} resultado(s)</span>
           <Link

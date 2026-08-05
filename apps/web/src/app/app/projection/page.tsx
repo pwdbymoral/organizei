@@ -8,6 +8,7 @@ import { ThemeToggle } from '../../../components/theme-toggle';
 import { LogoutButton } from '../../../components/logout-button';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { AppNavigation } from '../../../components/app-navigation';
 
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const date = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
@@ -50,6 +51,7 @@ export default async function ProjectionPage({
             <LogoutButton />
           </div>
         </header>
+        <AppNavigation />
         <section className="border-border bg-surface rounded-3xl border p-5 sm:p-8">
           <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
             <div>
