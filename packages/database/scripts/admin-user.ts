@@ -9,7 +9,13 @@ const emailOk = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const fail = (message: string): never => {
   throw new Error(message);
 };
-async function password(): Promise<string> {
+async function password(fromStdin: boolean): Promise<string> {
+  if (fromStdin) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
+    const value = Buffer.concat(chunks).toString('utf8').trimEnd();
+    return value.length >= 12 ? value : fail('Password must contain at least 12 characters.');
+  }
   if (!process.stdin.isTTY) return fail('Password requires an interactive TTY.');
   const reader = createInterface({ input: process.stdin, output: process.stdout });
   process.stdout.write('Senha: ');
@@ -33,7 +39,10 @@ async function main() {
     fail('DATABASE_URL and BETTER_AUTH_SECRET are required.');
   if (process.env.NODE_ENV === 'production' && process.env.ORGANIZEI_ADMIN_CONFIRM !== 'yes')
     fail('Set ORGANIZEI_ADMIN_CONFIRM=yes in production.');
-  const [command, email, name] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const passwordFromStdin = args.at(-1) === '--password-stdin';
+  if (passwordFromStdin) args.pop();
+  const [command, email, name] = args;
   if (!command) fail('Missing command.');
   if (command === 'list') {
     console.table(
@@ -49,7 +58,7 @@ async function main() {
   if (command === 'create') {
     if (target) fail('User already exists.');
     if (!name?.trim()) fail('A display name is required.');
-    const secret = await password();
+    const secret = await password(passwordFromStdin);
     const id = randomUUID();
     await db.transaction(async (tx) => {
       await tx.insert(user).values({ id, name: name.trim(), email, emailVerified: true });
@@ -69,7 +78,7 @@ async function main() {
   }
   if (!target) fail('User not found.');
   if (command === 'reset-password') {
-    const secret = await password();
+    const secret = await password(passwordFromStdin);
     await db.transaction(async (tx) => {
       await tx
         .update(account)

@@ -11,6 +11,24 @@ test('manifest and offline page are available @pwa', async ({ page }) => {
   await page.goto('/offline');
   await expect(page.getByRole('heading')).toContainText('sem conexão');
 });
+test('service worker caches only the public shell @pwa', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'Cache Storage coverage is Chromium-only.');
+  await page.goto('/login');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  await expect
+    .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
+    .toBe(true);
+  const cachedUrls = await page.evaluate(async () =>
+    Promise.all((await caches.keys()).map(async (name) => (await caches.open(name)).keys())).then(
+      (groups) => groups.flat().map((request) => new URL(request.url).pathname),
+    ),
+  );
+  expect(cachedUrls).toEqual(
+    expect.arrayContaining(['/offline', '/manifest.webmanifest', '/icon.svg']),
+  );
+  expect(cachedUrls).not.toEqual(expect.arrayContaining(['/app', '/api/auth/sign-in/email']));
+});
 test('authentication, protected route, theme and logout @a11y @pwa', async ({ page }) => {
   await page.goto('/app');
   await expect(page).toHaveURL(/\/login/);
@@ -24,6 +42,20 @@ test('authentication, protected route, theme and logout @a11y @pwa', async ({ pa
   await expect(page.locator('html')).toHaveClass(/dark/);
   await page.getByLabel('Tema').selectOption('light');
   await expect(page.locator('html')).not.toHaveClass(/dark/);
+  await page.evaluate(async () => {
+    localStorage.setItem('organizei-sensitive', 'synthetic');
+    sessionStorage.setItem('organizei-sensitive', 'synthetic');
+    await (await caches.open('organizei-private-test')).put('/private', new Response('synthetic'));
+  });
   await page.getByRole('button', { name: 'Sair' }).click();
   await expect(page).toHaveURL(/\/login/);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => ({
+        local: localStorage.getItem('organizei-sensitive'),
+        session: sessionStorage.getItem('organizei-sensitive'),
+        privateCache: (await caches.keys()).includes('organizei-private-test'),
+      })),
+    )
+    .toEqual({ local: null, session: null, privateCache: false });
 });
