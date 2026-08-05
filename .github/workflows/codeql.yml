@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: github/codeql-action/init@e5968c3d492f83b30120f3dcb0e9bb0382c0134c
         with: { languages: javascript-typescript }
       - uses: github/codeql-action/analyze@e5968c3d492f83b30120f3dcb0e9bb0382c0134c
