@@ -1,5 +1,6 @@
 export type Direction = 'income' | 'expense';
 export type MovementStatus = 'pending' | 'realized' | 'canceled';
+export type RecurrenceCadence = 'weekly' | 'monthly';
 
 export interface FamilySpace {
   id: string;
@@ -54,6 +55,33 @@ export interface ProjectionResult {
   daily: DailyProjection[];
   lowestBalanceCents: number;
   firstNegativeDate: string | null;
+}
+
+export interface RecurrenceRuleVersion {
+  id: string;
+  seriesId: string;
+  version: number;
+  effectiveFrom: string;
+  effectiveUntil?: string | null;
+  maxOccurrences?: number | null;
+  description: string;
+  direction: Direction;
+  expectedAmountCents: number;
+  cadence: RecurrenceCadence;
+}
+
+export interface FinancialPayment {
+  id: string;
+  movementId: string;
+  amountCents: number;
+  paidDate: string;
+}
+
+export interface MonthlyProjection {
+  month: string;
+  balanceCents: number;
+  incomeCents: number;
+  expenseCents: number;
 }
 
 /**
@@ -171,4 +199,163 @@ export function calculateDailyProjection(
     lowestBalanceCents: lowestBalance,
     firstNegativeDate,
   };
+}
+
+/** Projects paid cash events separately from each occurrence's still-open balance. */
+export function calculateDailyProjectionWithPayments(
+  confirmedBalance: ConfirmedBalance,
+  currentCivilDate: string,
+  movements: FinancialMovement[],
+  payments: FinancialPayment[],
+  horizonDays: number,
+): ProjectionResult {
+  const paymentsByMovement = new Map<string, FinancialPayment[]>();
+  for (const payment of payments) {
+    paymentsByMovement.set(payment.movementId, [
+      ...(paymentsByMovement.get(payment.movementId) ?? []),
+      payment,
+    ]);
+  }
+  const events: FinancialMovement[] = [];
+  for (const movement of movements) {
+    if (movement.status === 'canceled') continue;
+    const movementPayments = paymentsByMovement.get(movement.id) ?? [];
+    const remaining = remainingAmountCents(movement.expectedAmountCents, movementPayments);
+    for (const payment of movementPayments) {
+      events.push({
+        ...movement,
+        id: payment.id,
+        expectedAmountCents: payment.amountCents,
+        plannedDate: payment.paidDate,
+        status: 'realized',
+        realizedAmountCents: payment.amountCents,
+        realizedDate: payment.paidDate,
+      });
+    }
+    if (remaining > 0) {
+      events.push({
+        ...movement,
+        id: `${movement.id}:remaining`,
+        expectedAmountCents: remaining,
+        status: 'pending',
+        realizedAmountCents: null,
+        realizedDate: null,
+      });
+    }
+  }
+  return calculateDailyProjection(confirmedBalance, currentCivilDate, events, horizonDays);
+}
+
+function addCivilDays(date: string, days: number): string {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+function addCivilMonths(date: string, months: number): string {
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number];
+  const monthStart = new Date(Date.UTC(year, month - 1 + months, 1));
+  const lastDay = new Date(
+    Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  return new Date(
+    Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth(), Math.min(day, lastDay)),
+  )
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** Generates dates without persisting them; callers materialize only their required horizon. */
+export function generateRecurrenceDates(rule: RecurrenceRuleVersion, horizonEnd: string): string[] {
+  if (
+    rule.maxOccurrences !== undefined &&
+    rule.maxOccurrences !== null &&
+    rule.maxOccurrences < 1
+  ) {
+    throw new Error('A recorrência deve ter ao menos uma ocorrência.');
+  }
+  const finalDate = [horizonEnd, rule.effectiveUntil].filter(Boolean).sort()[0]!;
+  const dates: string[] = [];
+  for (let current = rule.effectiveFrom, sequence = 1; current <= finalDate; sequence += 1) {
+    if (rule.maxOccurrences && sequence > rule.maxOccurrences) break;
+    dates.push(current);
+    current = rule.cadence === 'weekly' ? addCivilDays(current, 7) : addCivilMonths(current, 1);
+  }
+  return dates;
+}
+
+export function paymentTotalCents(payments: FinancialPayment[]): number {
+  return payments.reduce((total, payment) => total + payment.amountCents, 0);
+}
+
+export function remainingAmountCents(
+  expectedAmountCents: number,
+  payments: FinancialPayment[],
+): number {
+  const paid = paymentTotalCents(payments);
+  if (paid > expectedAmountCents)
+    throw new Error('Pagamentos não podem ultrapassar o valor previsto.');
+  return expectedAmountCents - paid;
+}
+
+export function calculateMonthlyProjection(
+  confirmedBalance: ConfirmedBalance,
+  currentCivilDate: string,
+  movements: FinancialMovement[],
+  months: number = 12,
+): MonthlyProjection[] {
+  const horizonDays = Math.max(1, months * 31);
+  const daily = calculateDailyProjection(
+    confirmedBalance,
+    currentCivilDate,
+    movements,
+    horizonDays,
+  ).daily;
+  const grouped = new Map<string, MonthlyProjection>();
+  for (const day of daily) {
+    const month = day.date.slice(0, 7);
+    const current = grouped.get(month) ?? {
+      month,
+      balanceCents: day.balanceCents,
+      incomeCents: 0,
+      expenseCents: 0,
+    };
+    current.balanceCents = day.balanceCents;
+    current.incomeCents += day.incomeCents;
+    current.expenseCents += day.expenseCents;
+    grouped.set(month, current);
+  }
+  return [...grouped.values()].slice(0, months);
+}
+
+export function calculateMonthlyProjectionWithPayments(
+  confirmedBalance: ConfirmedBalance,
+  currentCivilDate: string,
+  movements: FinancialMovement[],
+  payments: FinancialPayment[],
+  months: number = 12,
+): MonthlyProjection[] {
+  const horizonDays = Math.max(1, months * 31);
+  const daily = calculateDailyProjectionWithPayments(
+    confirmedBalance,
+    currentCivilDate,
+    movements,
+    payments,
+    horizonDays,
+  ).daily;
+  const grouped = new Map<string, MonthlyProjection>();
+  for (const day of daily) {
+    const month = day.date.slice(0, 7);
+    const value = grouped.get(month) ?? {
+      month,
+      balanceCents: day.balanceCents,
+      incomeCents: 0,
+      expenseCents: 0,
+    };
+    value.balanceCents = day.balanceCents;
+    value.incomeCents += day.incomeCents;
+    value.expenseCents += day.expenseCents;
+    grouped.set(month, value);
+  }
+  return [...grouped.values()].slice(0, months);
 }
