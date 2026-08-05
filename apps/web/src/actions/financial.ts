@@ -5,8 +5,13 @@ import { headers } from 'next/headers';
 import {
   type MovementInput,
   type MovementUpdate,
+  type RecurrenceInput,
   confirmBalanceCore,
   createMovementCore,
+  createRecurrenceCore,
+  materializeRecurrenceCore,
+  recordPaymentCore,
+  splitRecurrenceFromHereCore,
   updateMovementCore,
 } from '../lib/financial-core';
 
@@ -36,4 +41,35 @@ export async function updateMovement(
 ) {
   const user = await requireAuth();
   return updateMovementCore(spaceId, movementId, data, version, user.id);
+}
+
+export async function createRecurrence(spaceId: string, data: RecurrenceInput) {
+  const user = await requireAuth();
+  return createRecurrenceCore(spaceId, data, user.id);
+}
+
+export async function materializeRecurrence(spaceId: string, ruleId: string, horizonEnd: string) {
+  const user = await requireAuth();
+  return materializeRecurrenceCore(spaceId, ruleId, horizonEnd, user.id);
+}
+
+export async function recordPayment(
+  spaceId: string,
+  movementId: string,
+  amountCents: number,
+  paidDate: string,
+  version: number,
+) {
+  const user = await requireAuth();
+  return recordPaymentCore(spaceId, movementId, amountCents, paidDate, version, user.id);
+}
+
+export async function splitRecurrenceFromHere(
+  spaceId: string,
+  ruleId: string,
+  effectiveFrom: string,
+  changes: Parameters<typeof splitRecurrenceFromHereCore>[3],
+) {
+  const user = await requireAuth();
+  return splitRecurrenceFromHereCore(spaceId, ruleId, effectiveFrom, changes, user.id);
 }

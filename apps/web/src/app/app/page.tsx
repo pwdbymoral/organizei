@@ -1,9 +1,19 @@
-import { confirmBalance, updateMovement } from '../../actions/financial';
-import { db, confirmedBalance, financialMovement } from '@organizei/database';
-import { eq, desc } from 'drizzle-orm';
+import {
+  confirmBalance,
+  materializeRecurrence,
+  recordPayment,
+  splitRecurrenceFromHere,
+  updateMovement,
+} from '../../actions/financial';
+import { db, confirmedBalance, financialMovement, financialPayment } from '@organizei/database';
+import { eq, desc, inArray } from 'drizzle-orm';
 import { familyMembership } from '@organizei/database';
 import Link from 'next/link';
-import { calculateDailyProjection, toCivilDate } from '@organizei/domain';
+import {
+  calculateDailyProjectionWithPayments,
+  calculateMonthlyProjectionWithPayments,
+  toCivilDate,
+} from '@organizei/domain';
 import type { DailyProjection } from '@organizei/domain';
 import { revalidatePath } from 'next/cache';
 import { ThemeToggle } from '../../components/theme-toggle';
@@ -52,6 +62,14 @@ export default async function Dashboard() {
     where: eq(financialMovement.spaceId, spaceId),
     orderBy: desc(financialMovement.plannedDate),
   });
+  const payments = movements.length
+    ? await db.query.financialPayment.findMany({
+        where: inArray(
+          financialPayment.movementId,
+          movements.map((movement) => movement.id),
+        ),
+      })
+    : [];
 
   // 2. Map schema objects to core domain structures
   const normalizedMovements = movements.map((m) => ({
@@ -65,6 +83,7 @@ export default async function Dashboard() {
     realizedAmountCents: m.realizedAmountCents,
     realizedDate: m.realizedDate,
     categoryId: m.categoryId,
+    recurrenceRuleVersionId: m.recurrenceRuleVersionId,
     createdBy: m.createdBy,
     updatedBy: m.updatedBy,
     createdAt: m.createdAt,
@@ -92,14 +111,21 @@ export default async function Dashboard() {
 
   // 3. Compute projection
   const horizonDays = 30;
-  const projection = calculateDailyProjection(
+  const projection = calculateDailyProjectionWithPayments(
     activeBalance,
     todayCivil,
     normalizedMovements,
+    payments,
     horizonDays,
   );
 
   const todayBalanceCents = projection.daily[0]?.balanceCents ?? activeBalance.amountCents;
+  const monthlyProjection = calculateMonthlyProjectionWithPayments(
+    activeBalance,
+    todayCivil,
+    normalizedMovements,
+    payments,
+  );
   const projectedBalances = new Map(projection.daily.map((day) => [day.date, day.balanceCents]));
   const timelineGroups = new Map<string, typeof normalizedMovements>();
   for (const movement of normalizedMovements) {
@@ -160,6 +186,38 @@ export default async function Dashboard() {
     revalidatePath('/app');
   }
 
+  async function handlePayment(formData: FormData) {
+    'use server';
+    const movementId = formData.get('movementId') as string;
+    const version = Number.parseInt(formData.get('version') as string, 10);
+    const amount = Number.parseFloat(formData.get('amount') as string);
+    const paidDate = formData.get('paidDate') as string;
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    await recordPayment(spaceId, movementId, Math.round(amount * 100), paidDate, version);
+    revalidatePath('/app');
+  }
+
+  async function handleSplitRecurrence(formData: FormData) {
+    'use server';
+    const movementId = formData.get('movementId') as string;
+    const movement = movements.find((item) => item.id === movementId);
+    if (!movement?.recurrenceRuleVersionId) return;
+    const rule = await splitRecurrenceFromHere(
+      spaceId,
+      movement.recurrenceRuleVersionId,
+      movement.plannedDate,
+      {
+        description: movement.description,
+        direction: movement.direction,
+        expectedAmountCents: movement.expectedAmountCents,
+      },
+    );
+    const horizon = new Date(`${movement.plannedDate}T00:00:00Z`);
+    horizon.setUTCFullYear(horizon.getUTCFullYear() + 1);
+    await materializeRecurrence(spaceId, rule.id, horizon.toISOString().slice(0, 10));
+    revalidatePath('/app');
+  }
+
   return (
     <main className="bg-background text-text mx-auto flex min-h-screen max-w-md flex-col gap-6 p-4">
       <header className="border-border flex items-center justify-between border-b pb-4">
@@ -211,6 +269,27 @@ export default async function Dashboard() {
             Confirmar
           </button>
         </form>
+      </section>
+
+      <section aria-labelledby="monthly-projection-title">
+        <h2
+          id="monthly-projection-title"
+          className="text-text-muted mb-3 text-xs font-semibold uppercase tracking-wider"
+        >
+          Planejamento mensal (12 meses)
+        </h2>
+        <div className="border-border bg-surface divide-border divide-y overflow-hidden rounded border">
+          {monthlyProjection.map((month) => (
+            <div key={month.month} className="flex items-center justify-between px-3 py-2 text-sm">
+              <span>{month.month}</span>
+              <span
+                className={month.balanceCents < 0 ? 'text-danger font-semibold' : 'font-semibold'}
+              >
+                R$ {(month.balanceCents / 100).toFixed(2)}
+              </span>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Projeção Diária de 30 dias */}
@@ -282,6 +361,10 @@ export default async function Dashboard() {
                   const isIncome = mov.direction === 'income';
                   const isRealized = mov.status === 'realized';
                   const isCanceled = mov.status === 'canceled';
+                  const paidCents = payments
+                    .filter((payment) => payment.movementId === mov.id)
+                    .reduce((total, payment) => total + payment.amountCents, 0);
+                  const remainingCents = mov.expectedAmountCents - paidCents;
                   const displayAmount = isRealized
                     ? (mov.realizedAmountCents ?? mov.expectedAmountCents)
                     : mov.expectedAmountCents;
@@ -297,6 +380,11 @@ export default async function Dashboard() {
                           {isIncome ? 'Receita' : 'Despesa'} • {mov.plannedDate}
                           {isRealized && mov.realizedDate && ` • Realizado em ${mov.realizedDate}`}
                         </p>
+                        {paidCents > 0 && !isRealized && (
+                          <p className="text-xxs text-warning">
+                            Restam R$ {(remainingCents / 100).toFixed(2)}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-3">
                         <span
@@ -317,6 +405,40 @@ export default async function Dashboard() {
                         </span>
                         <div className="flex gap-1">
                           {!isRealized && !isCanceled && (
+                            <form action={handlePayment} className="flex gap-1">
+                              <input type="hidden" name="movementId" value={mov.id} />
+                              <input type="hidden" name="version" value={mov.version} />
+                              <input type="hidden" name="paidDate" value={todayCivil} />
+                              <input
+                                aria-label={`Valor pago para ${mov.description}`}
+                                name="amount"
+                                type="number"
+                                min="0.01"
+                                max={(remainingCents / 100).toFixed(2)}
+                                step="0.01"
+                                required
+                                className="border-border bg-background w-20 rounded border px-1 text-xs"
+                              />
+                              <button
+                                type="submit"
+                                className="border-border bg-background text-xxs hover:bg-surface-elevated text-text rounded border px-2 py-1 transition-colors"
+                              >
+                                Pagar
+                              </button>
+                            </form>
+                          )}
+                          {!isRealized && !isCanceled && mov.recurrenceRuleVersionId && (
+                            <form action={handleSplitRecurrence}>
+                              <input type="hidden" name="movementId" value={mov.id} />
+                              <button
+                                type="submit"
+                                className="border-border bg-background text-xxs hover:bg-surface-elevated text-text rounded border px-2 py-1 transition-colors"
+                              >
+                                Daqui em diante
+                              </button>
+                            </form>
+                          )}
+                          {!isRealized && !isCanceled && mov.status === 'pending' && (
                             <form action={handleRealizeMovement}>
                               <input type="hidden" name="movementId" value={mov.id} />
                               <input type="hidden" name="version" value={mov.version} />

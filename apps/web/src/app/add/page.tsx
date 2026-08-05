@@ -2,7 +2,7 @@ import { db } from '@organizei/database';
 import { eq } from 'drizzle-orm';
 import { familyMembership } from '@organizei/database';
 import { redirect } from 'next/navigation';
-import { createMovement } from '../../actions/financial';
+import { createMovement, createRecurrence, materializeRecurrence } from '../../actions/financial';
 import { auth } from '../../lib/auth';
 import { headers } from 'next/headers';
 
@@ -29,15 +29,32 @@ export default async function AddMovementPage() {
     const direction = formData.get('direction') as 'income' | 'expense';
     const amount = parseFloat(formData.get('amount') as string);
     const plannedDate = formData.get('plannedDate') as string;
+    const cadence = formData.get('cadence') as 'once' | 'weekly' | 'monthly';
+    const maxOccurrencesValue = formData.get('maxOccurrences') as string;
+    const maxOccurrences = maxOccurrencesValue ? Number.parseInt(maxOccurrencesValue, 10) : null;
 
     const expectedAmountCents = Math.round(amount * 100);
 
-    await createMovement(membership!.spaceId, {
+    const movement = {
       description,
       direction,
       expectedAmountCents,
       plannedDate,
-    });
+    };
+
+    if (cadence === 'once') {
+      await createMovement(membership!.spaceId, movement);
+    } else {
+      const rule = await createRecurrence(membership!.spaceId, {
+        ...movement,
+        cadence,
+        effectiveFrom: plannedDate,
+        maxOccurrences,
+      });
+      const horizon = new Date(`${plannedDate}T00:00:00Z`);
+      horizon.setUTCFullYear(horizon.getUTCFullYear() + 1);
+      await materializeRecurrence(membership!.spaceId, rule.id, horizon.toISOString().slice(0, 10));
+    }
 
     redirect('/');
   }
@@ -49,6 +66,39 @@ export default async function AddMovementPage() {
       </header>
 
       <form action={addAction} className="space-y-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium" htmlFor="cadence">
+            Repetição
+          </label>
+          <select
+            id="cadence"
+            name="cadence"
+            defaultValue="once"
+            className="border-border bg-surface w-full rounded-md border p-2"
+          >
+            <option value="once">Não repetir</option>
+            <option value="weekly">Semanal</option>
+            <option value="monthly">Mensal</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium" htmlFor="maxOccurrences">
+            Quantidade de ocorrências (opcional)
+          </label>
+          <input
+            type="number"
+            id="maxOccurrences"
+            name="maxOccurrences"
+            min="1"
+            inputMode="numeric"
+            className="border-border bg-surface w-full rounded-md border p-2"
+          />
+          <p className="text-text-muted mt-1 text-xs">
+            Use para parcelamentos; vazio mantém a série contínua.
+          </p>
+        </div>
+
         <div>
           <label className="mb-1 block text-sm font-medium" htmlFor="description">
             Descrição
