@@ -48,10 +48,14 @@ jobs:
         timeout-minutes: 15
         run: |
           corepack enable
-          time pnpm install --frozen-lockfile
+          start_time=$(date +%s)
+          pnpm install --frozen-lockfile
+          end_time=$(date +%s)
+          echo "Installation took $((end_time - start_time)) seconds."
       - name: Prepare Database
         run: |
-          time pnpm --filter @organizei/database exec tsx -e "
+          start_time=$(date +%s)
+          pnpm --filter @organizei/database exec tsx -e "
             import { Client } from 'pg';
             const client = new Client({ connectionString: process.env.DATABASE_URL });
             client.connect()
@@ -64,10 +68,20 @@ jobs:
                 process.exit(1);
               });
           "
+          end_time=$(date +%s)
+          echo "Database preparation took $((end_time - start_time)) seconds."
       - name: Run Migrations
-        run: time pnpm db:migrate
+        run: |
+          start_time=$(date +%s)
+          pnpm db:migrate
+          end_time=$(date +%s)
+          echo "Migrations took $((end_time - start_time)) seconds."
       - name: Run Seed
-        run: time pnpm db:seed
+        run: |
+          start_time=$(date +%s)
+          pnpm db:seed
+          end_time=$(date +%s)
+          echo "Seed took $((end_time - start_time)) seconds."
       - name: Start Application
         env:
           RUNNER_TRACKING_ID: ''
@@ -91,10 +105,18 @@ jobs:
           exit 1
       - name: Run Chromium Tests
         timeout-minutes: 15
-        run: time pnpm exec playwright test --project=chromium --workers=1
+        run: |
+          start_time=$(date +%s)
+          pnpm exec playwright test --project=chromium --workers=1
+          end_time=$(date +%s)
+          echo "Chromium tests took $((end_time - start_time)) seconds."
       - name: Run WebKit Tests
         timeout-minutes: 15
-        run: time pnpm exec playwright test --project=webkit --workers=1
+        run: |
+          start_time=$(date +%s)
+          pnpm exec playwright test --project=webkit --workers=1
+          end_time=$(date +%s)
+          echo "WebKit tests took $((end_time - start_time)) seconds."
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with: { name: playwright-artifacts, path: 'test-results/', if-no-files-found: ignore }
