@@ -51,6 +51,10 @@ async function main(): Promise<void> {
 
       const e2eSection = content.split('e2e:')[1];
       if (e2eSection) {
+        if (/services:\s*\n\s+postgres:[\s\S]*?\n\s+ports:/.test(e2eSection)) {
+          throw new Error('ci.yml: E2E PostgreSQL service must not publish ports.');
+        }
+
         const timeoutMatch = e2eSection.match(/timeout-minutes:\s*(\d+)/);
         if (timeoutMatch) {
           const timeout = parseInt(timeoutMatch[1], 10);

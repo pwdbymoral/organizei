@@ -2,6 +2,19 @@
 import { useTheme } from 'next-themes';
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
+  function changeTheme(nextTheme: string) {
+    setTheme(nextTheme);
+
+    const resolvedTheme =
+      nextTheme === 'system'
+        ? window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light'
+        : nextTheme;
+
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(resolvedTheme);
+  }
   return (
     <label className="text-text-muted text-sm">
       Tema{' '}
@@ -9,7 +22,7 @@ export function ThemeToggle() {
         aria-label="Tema"
         className="bg-surface text-text ml-2 rounded border p-2"
         value={theme}
-        onChange={(event) => setTheme(event.target.value)}
+        onChange={(event) => changeTheme(event.target.value)}
       >
         <option value="light">Claro</option>
         <option value="dark">Escuro</option>
