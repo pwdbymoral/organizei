@@ -19,6 +19,7 @@ test('authentication, protected route, theme and logout @a11y @pwa', async ({ pa
   await page.getByLabel('Senha').fill('senha-sintetica-segura-123');
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page.getByRole('heading')).toContainText('fundação do Organizei');
+  await expect(page.getByLabel('Tema')).toBeEnabled();
   await page.getByLabel('Tema').selectOption('dark');
   await expect(page.locator('html')).toHaveClass(/dark/);
   await page.getByLabel('Tema').selectOption('light');
