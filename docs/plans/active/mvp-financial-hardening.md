@@ -25,25 +25,25 @@ Concluir o MVP financeiro com recorrências e pagamentos corretos, uma interface
 
 ### 1. Corrigir o modelo e as invariantes de recorrência
 
-- [ ] Definir a semântica de âncora mensal e implementar geração sem deriva após fevereiro.
-- [ ] Modelar exceção de uma ocorrência sem alterar a regra-base.
-- [ ] Corrigir divisão futura: encerrar somente ocorrências a partir da data efetiva, preservar pendentes anteriores e transferir o limite restante de parcelas.
+- [x] Definir a semântica de âncora mensal e implementar geração sem deriva após fevereiro.
+- [x] Modelar exceção de uma ocorrência sem alterar a regra-base.
+- [x] Corrigir divisão futura: encerrar somente ocorrências a partir da data efetiva, preservar pendentes anteriores e transferir o limite restante de parcelas.
 - [ ] Adicionar proteção contra concorrência na criação da próxima versão da série.
-- [ ] Materializar séries ativas até o horizonte de projeção de forma idempotente na leitura/rotina apropriada.
+- [x] Materializar séries ativas até o horizonte de projeção de forma idempotente na leitura/rotina apropriada.
 
 ### 2. Consolidar pagamentos, realização e projeções
 
-- [ ] Escolher e documentar a fonte de verdade para realização integral e pagamento parcial.
-- [ ] Impedir realização/cancelamento incompatível com pagamentos existentes e validar a data de pagamento.
-- [ ] Corrigir projeções para considerar o estado realizado e pagamentos no instante correto, sem duplicação nem antecipação indevida.
-- [ ] Adicionar FKs e constraints necessárias entre ocorrência, regra e pagamentos; regenerar a metadata da migração de forma coerente.
+- [x] Escolher e documentar a fonte de verdade para realização integral e pagamento parcial.
+- [x] Impedir realização/cancelamento incompatível com pagamentos existentes e validar a data de pagamento.
+- [x] Corrigir projeções para considerar o estado realizado e pagamentos no instante correto, sem duplicação nem antecipação indevida.
+- [x] Adicionar FKs e constraints necessárias entre ocorrência, regra e pagamentos; regenerar a metadata da migração de forma coerente.
 
 ### 3. Entregar os fluxos de produto e UX
 
-- [ ] Incluir fim por data na criação/edição de recorrência e controles reais para editar “esta” e “esta e próximas”.
-- [ ] Substituir ações densas em linha por controles responsivos e acessíveis, usando primitivos estáveis quando agregarem diálogo, menu ou feedback.
+- [x] Incluir fim por data na criação/edição de recorrência e controles reais para editar “esta” e “esta e próximas”.
+- [x] Substituir ações densas em linha por controles responsivos e acessíveis, usando primitivos estáveis quando agregarem diálogo, menu ou feedback.
 - [ ] Aplicar formatação pt-BR de moeda/data e estados claros de pendente, saldo restante, realizado e cancelado.
-- [ ] Exibir mensagens de sucesso, validação e conflito com foco previsível e região de anúncio.
+- [x] Exibir mensagens de sucesso, validação e conflito com foco previsível e região de anúncio.
 - [ ] Validar tema claro/escuro, foco, contraste e alvos de toque.
 
 ### 4. Cobertura e verificação de risco
