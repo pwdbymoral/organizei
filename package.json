@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "pnpm --filter @organizei/web dev",
+    "setup": "bash scripts/setup.sh",
     "build": "pnpm --filter @organizei/web build",
     "start": "pnpm --filter @organizei/web start",
     "format": "prettier --write .",
