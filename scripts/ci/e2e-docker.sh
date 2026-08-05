@@ -15,4 +15,5 @@ docker run --rm --user "$(id -u):$(id -g)" --network host --ipc=host -v "$PWD:/w
   -e DATABASE_URL=postgresql://organizei:organizei_local_only@127.0.0.1:5433/organizei \
   -e BETTER_AUTH_SECRET=development-only-change-me-to-at-least-32-characters \
   -e BETTER_AUTH_URL=http://127.0.0.1:3000 \
+  -e ORGANIZEI_E2E=true \
   mcr.microsoft.com/playwright:v1.57.0-noble bash -lc 'mkdir -p /tmp/bin && COREPACK_HOME=/tmp/corepack corepack enable --install-directory /tmp/bin && export COREPACK_HOME=/tmp/corepack PATH=/tmp/bin:$PATH && pnpm install --store-dir /tmp/pnpm-store --frozen-lockfile && pnpm test:e2e'

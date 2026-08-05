@@ -39,6 +39,7 @@ jobs:
       DATABASE_URL: postgresql://organizei:organizei_local_only@postgres:5432/organizei
       BETTER_AUTH_SECRET: synthetic-ci-secret-with-at-least-32-characters
       BETTER_AUTH_URL: http://127.0.0.1:3000
+      ORGANIZEI_E2E: 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
