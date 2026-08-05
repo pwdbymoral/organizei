@@ -16,6 +16,8 @@ O script `pnpm dev` copia `.env.local` (ou `.env`) para o arquivo ignorado `apps
 
 Para dados sintéticos, execute `pnpm db:seed` explicitamente depois do setup. Nunca execute seed em produção. Pare os serviços com `docker compose down`; os dados locais ficam no volume nomeado.
 
+Após o seed, entre em `http://localhost:3000/login` com `ana@example.test` e `senha-sintetica-segura-123`. Essas credenciais são exclusivamente sintéticas para desenvolvimento; não as reutilize em qualquer ambiente compartilhado.
+
 Comandos úteis:
 
 - `pnpm test`: unitários e integração;

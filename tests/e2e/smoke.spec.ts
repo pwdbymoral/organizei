@@ -37,10 +37,10 @@ test('authentication, protected route, theme and logout @a11y @pwa', async ({ pa
   await page.getByLabel('Senha').fill('senha-sintetica-segura-123');
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page.getByRole('heading', { name: 'Organizei' })).toBeVisible({ timeout: 15000 });
-  await expect(page.getByLabel('Tema')).toBeEnabled();
-  await page.getByLabel('Tema').selectOption('dark');
+  await expect(page.getByLabel('Tema').getByRole('button', { name: 'Escuro' })).toBeEnabled();
+  await page.getByLabel('Tema').getByRole('button', { name: 'Escuro' }).click();
   await expect(page.locator('html')).toHaveClass(/dark/);
-  await page.getByLabel('Tema').selectOption('light');
+  await page.getByLabel('Tema').getByRole('button', { name: 'Claro' }).click();
   await expect(page.locator('html')).not.toHaveClass(/dark/);
   await page.evaluate(async () => {
     localStorage.setItem('organizei-sensitive', 'synthetic');
