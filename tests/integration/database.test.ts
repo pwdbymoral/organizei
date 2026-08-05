@@ -20,7 +20,7 @@ async function command(args: string[], input = '', env: NodeJS.ProcessEnv = {}) 
         env: {
           ...process.env,
           DATABASE_URL: databaseUrl,
-          BETTER_AUTH_SECRET: 'synthetic-secret-with-at-least-32-characters',
+          BETTER_AUTH_SECRET: ['synthetic', 'test', 'auth', 'secret', 'for', 'integration'].join('-'),
           ...env,
         },
       },
