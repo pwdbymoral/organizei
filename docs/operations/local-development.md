@@ -12,6 +12,8 @@ pnpm dev
 
 `pnpm setup` cria `.env.local` se necessário, sobe o PostgreSQL local, aguarda o healthcheck e aplica as migrations. O banco é exposto na porta host `5433` apenas para desenvolvimento; a aplicação usa `3000`.
 
+O Next carrega `.env` ou `.env.local` da raiz do monorepo durante desenvolvimento. Se ambos existirem, `.env.local` tem precedência. Em produção, as variáveis devem ser fornecidas pelo ambiente da Coolify.
+
 Para dados sintéticos, execute `pnpm db:seed` explicitamente depois do setup. Nunca execute seed em produção. Pare os serviços com `docker compose down`; os dados locais ficam no volume nomeado.
 
 Comandos úteis:

@@ -13,7 +13,7 @@ if [ "$node_major" -lt 24 ] || [ "$pnpm_major" -lt 11 ]; then
   exit 1
 fi
 
-if [ ! -f .env.local ]; then
+if [ ! -f .env.local ] && [ ! -f .env ]; then
   cp .env.example .env.local
   echo "Criado .env.local a partir de .env.example; revise o segredo antes de usar."
 fi

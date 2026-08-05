@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.6.26",
+    "@next/env": "16.3.0",
     "@organizei/database": "workspace:*",
     "@organizei/domain": "workspace:*",
     "@organizei/ui": "workspace:*",
