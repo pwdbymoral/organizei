@@ -158,6 +158,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
 
     // Add Expense (that makes projection drop, we will set a future one to check projection)
     await pageA.getByRole('link', { name: '+ Movimentação' }).click();
+    await expect(pageA.getByRole('heading', { name: 'Adição rápida' })).toBeVisible();
     await pageA.getByLabel('Descrição').fill('Conta de Luz');
     await pageA.getByLabel('Tipo').selectOption('expense');
     await pageA.getByLabel('Valor').fill('30.00');
@@ -168,8 +169,18 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await expect(pageA.getByText('R$ 120,00').first()).toBeVisible();
     await expect(pageA.getByText('Conta de Luz')).toBeVisible();
 
+    // Timeline search accepts description and Brazilian currency values without changing projections.
+    await pageA.getByLabel('Buscar descrição ou valor').fill('50,00');
+    await pageA.getByRole('button', { name: 'Aplicar filtros' }).click();
+    await expect(pageA).toHaveURL(/q=50(?:%2C|,)00/);
+    await expect(pageA.getByText('Salário Mensal')).toBeVisible();
+    await expect(pageA.getByText('Conta de Luz')).not.toBeVisible();
+    await pageA.getByRole('link', { name: 'Limpar' }).click();
+    await expect(pageA.getByText('Conta de Luz')).toBeVisible();
+
     // Recurring movement plus an occurrence-only exception must remain operable on mobile.
     await pageA.getByRole('link', { name: '+ Movimentação' }).click();
+    await expect(pageA.getByRole('heading', { name: 'Adição rápida' })).toBeVisible();
     await pageA.getByLabel('Repetição').selectOption('monthly');
     await pageA.getByLabel('Descrição').fill('Mensalidade');
     await pageA.getByLabel('Valor (R$)').fill('20,00');
@@ -182,6 +193,9 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await recurringCard.getByRole('button', { name: 'Editar esta' }).click();
     const occurrenceDialog = pageA.getByRole('dialog', { name: 'Editar esta ocorrência' });
     await expect(occurrenceDialog).toBeVisible();
+    expect(
+      await new AxeBuilder({ page: pageA }).include('[role="dialog"]').analyze(),
+    ).toHaveProperty('violations', []);
     await occurrenceDialog.getByLabel('Descrição').fill('Mensalidade ajustada');
     await occurrenceDialog.getByRole('button', { name: 'Salvar ocorrência' }).click();
     await expect(pageA.getByText('Mensalidade ajustada', { exact: true }).first()).toBeVisible();
@@ -210,7 +224,9 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageB.getByRole('button', { name: 'Realizar' }).first().click();
 
     // Check updated status to "Realizado"
-    await expect(pageB.getByText('Realizado', { exact: true })).toBeVisible();
+    await expect(
+      pageB.getByLabel(/Movimentações de/).getByText('Realizado', { exact: true }),
+    ).toBeVisible();
 
     // --- Step 8: Login User C (adversary in other space, different context) ---
     const contextC = await browser.newContext();

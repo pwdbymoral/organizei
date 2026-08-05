@@ -24,6 +24,7 @@ import { auth } from '../../lib/auth';
 import { materializeSpaceRecurrencesCore } from '../../lib/financial-core';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { matchesTimelineFilters, parseTimelineFilters } from '../../lib/financial-filters';
 
 const moneyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
@@ -36,7 +37,11 @@ const formatMoney = (cents: number) => moneyFormatter.format(cents / 100);
 const formatDate = (date: string) => dateFormatter.format(new Date(`${date}T12:00:00Z`));
 const formatMonth = (month: string) => monthFormatter.format(new Date(`${month}-01T12:00:00Z`));
 
-export default async function Dashboard() {
+type DashboardProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function Dashboard({ searchParams }: DashboardProps) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -66,6 +71,7 @@ export default async function Dashboard() {
 
   const spaceId = membership.spaceId;
   const todayCivil = toCivilDate(new Date(), 'America/Maceio');
+  const timelineFilters = parseTimelineFilters((await searchParams) ?? {});
   const materializationHorizon = new Date(`${todayCivil}T00:00:00Z`);
   materializationHorizon.setUTCFullYear(materializationHorizon.getUTCFullYear() + 1);
   await materializeSpaceRecurrencesCore(
@@ -156,8 +162,18 @@ export default async function Dashboard() {
     payments,
   );
   const projectedBalances = new Map(projection.daily.map((day) => [day.date, day.balanceCents]));
+  const monthlyTotals = new Map<string, { incomeCents: number; expenseCents: number }>();
+  for (const movement of normalizedMovements) {
+    if (movement.status === 'canceled') continue;
+    const month = movement.plannedDate.slice(0, 7);
+    const current = monthlyTotals.get(month) ?? { incomeCents: 0, expenseCents: 0 };
+    current[movement.direction === 'income' ? 'incomeCents' : 'expenseCents'] +=
+      movement.expectedAmountCents;
+    monthlyTotals.set(month, current);
+  }
   const timelineGroups = new Map<string, typeof normalizedMovements>();
   for (const movement of normalizedMovements) {
+    if (!matchesTimelineFilters(movement, timelineFilters, todayCivil)) continue;
     const date =
       movement.status === 'realized'
         ? (movement.realizedDate ?? movement.plannedDate)
@@ -210,7 +226,7 @@ export default async function Dashboard() {
   }
 
   return (
-    <main className="bg-background text-text mx-auto flex min-h-screen max-w-md flex-col gap-6 p-4">
+    <main className="bg-background text-text mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <header className="border-border flex items-center justify-between border-b pb-4">
         <div>
           <h1 className="text-xl font-bold">Organizei</h1>
@@ -270,17 +286,29 @@ export default async function Dashboard() {
           Planejamento mensal (12 meses)
         </h2>
         <div className="border-border bg-surface divide-border divide-y overflow-hidden rounded border">
-          {monthlyProjection.map((month) => (
-            <div key={month.month} className="flex items-center justify-between px-3 py-2 text-sm">
-              <span className="capitalize">{formatMonth(month.month)}</span>
-              <span
-                className={month.balanceCents < 0 ? 'text-danger font-semibold' : 'font-semibold'}
+          {monthlyProjection.map((month) => {
+            const totals = monthlyTotals.get(month.month) ?? { incomeCents: 0, expenseCents: 0 };
+            return (
+              <div
+                key={month.month}
+                className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
               >
-                {formatMoney(month.balanceCents)}
-              </span>
-            </div>
-          ))}
+                <span className="capitalize">{formatMonth(month.month)}</span>
+                <span className="text-text-muted text-xs">
+                  +{formatMoney(totals.incomeCents)} · -{formatMoney(totals.expenseCents)}
+                </span>
+                <span
+                  className={month.balanceCents < 0 ? 'text-danger font-semibold' : 'font-semibold'}
+                >
+                  Saldo {formatMoney(month.balanceCents)}
+                </span>
+              </div>
+            );
+          })}
         </div>
+        <p className="text-text-muted mt-2 text-xs">
+          Entradas e saídas previstas no mês; o saldo inclui pagamentos e movimentações realizadas.
+        </p>
       </section>
 
       {/* Projeção Diária de 30 dias */}
@@ -331,9 +359,114 @@ export default async function Dashboard() {
           </Link>
         </div>
 
+        <form
+          method="get"
+          className="border-border bg-surface mb-4 grid gap-3 rounded border p-3 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          <label className="text-xs font-medium sm:col-span-2 lg:col-span-2">
+            Buscar descrição ou valor
+            <input
+              name="q"
+              defaultValue={timelineFilters.query}
+              placeholder="Ex.: aluguel ou 1.250,00"
+              className="border-border bg-background text-text mt-1 min-h-11 w-full rounded border px-3 text-sm"
+            />
+          </label>
+          <label className="text-xs font-medium">
+            Situação
+            <select
+              name="status"
+              defaultValue={timelineFilters.status}
+              className="border-border bg-background text-text mt-1 min-h-11 w-full rounded border px-3 text-sm"
+            >
+              <option value="all">Todas</option>
+              <option value="pending">Pendente</option>
+              <option value="realized">Realizado</option>
+              <option value="canceled">Cancelado</option>
+              <option value="overdue">Vencido</option>
+            </select>
+          </label>
+          <label className="text-xs font-medium">
+            Tipo
+            <select
+              name="direction"
+              defaultValue={timelineFilters.direction}
+              className="border-border bg-background text-text mt-1 min-h-11 w-full rounded border px-3 text-sm"
+            >
+              <option value="all">Todos</option>
+              <option value="income">Entradas</option>
+              <option value="expense">Saídas</option>
+            </select>
+          </label>
+          <label className="text-xs font-medium">
+            De
+            <input
+              type="date"
+              name="from"
+              defaultValue={timelineFilters.from}
+              className="border-border bg-background text-text mt-1 min-h-11 w-full rounded border px-3 text-sm"
+            />
+          </label>
+          <label className="text-xs font-medium">
+            Até
+            <input
+              type="date"
+              name="to"
+              defaultValue={timelineFilters.to}
+              className="border-border bg-background text-text mt-1 min-h-11 w-full rounded border px-3 text-sm"
+            />
+          </label>
+          <label className="text-xs font-medium">
+            Valor mínimo
+            <input
+              name="min"
+              defaultValue={
+                timelineFilters.minAmountCents === null
+                  ? ''
+                  : (timelineFilters.minAmountCents / 100).toFixed(2).replace('.', ',')
+              }
+              inputMode="decimal"
+              placeholder="R$ 0,00"
+              className="border-border bg-background text-text mt-1 min-h-11 w-full rounded border px-3 text-sm"
+            />
+          </label>
+          <label className="text-xs font-medium">
+            Valor máximo
+            <input
+              name="max"
+              defaultValue={
+                timelineFilters.maxAmountCents === null
+                  ? ''
+                  : (timelineFilters.maxAmountCents / 100).toFixed(2).replace('.', ',')
+              }
+              inputMode="decimal"
+              placeholder="R$ 0,00"
+              className="border-border bg-background text-text mt-1 min-h-11 w-full rounded border px-3 text-sm"
+            />
+          </label>
+          <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
+            <button
+              type="submit"
+              className="bg-primary min-h-11 rounded px-4 text-sm font-semibold text-white"
+            >
+              Aplicar filtros
+            </button>
+            <Link
+              href="/app"
+              className="border-border bg-background text-text min-h-11 rounded border px-4 py-2 text-sm"
+            >
+              Limpar
+            </Link>
+          </div>
+        </form>
+
         {normalizedMovements.length === 0 ? (
           <div className="border-border text-text-muted bg-surface rounded border border-dashed py-8 text-center text-xs">
             Nenhuma movimentação cadastrada.
+          </div>
+        ) : timelineDays.length === 0 ? (
+          <div className="border-border text-text-muted bg-surface rounded border border-dashed py-8 text-center text-sm">
+            Nenhuma movimentação encontrada. Tente ajustar os filtros.
           </div>
         ) : (
           <div className="space-y-4">
@@ -353,6 +486,7 @@ export default async function Dashboard() {
                   const isIncome = mov.direction === 'income';
                   const isRealized = mov.status === 'realized';
                   const isCanceled = mov.status === 'canceled';
+                  const isOverdue = mov.status === 'pending' && mov.plannedDate < todayCivil;
                   const paidCents = payments
                     .filter((payment) => payment.movementId === mov.id)
                     .reduce((total, payment) => total + payment.amountCents, 0);
@@ -396,7 +530,13 @@ export default async function Dashboard() {
                                 : 'bg-warning/20 text-warning'
                           }`}
                         >
-                          {isRealized ? 'Realizado' : isCanceled ? 'Cancelado' : 'Pendente'}
+                          {isRealized
+                            ? 'Realizado'
+                            : isCanceled
+                              ? 'Cancelado'
+                              : isOverdue
+                                ? 'Vencido'
+                                : 'Pendente'}
                         </span>
                         <div className="flex flex-wrap gap-2">
                           {!isRealized && !isCanceled && (
