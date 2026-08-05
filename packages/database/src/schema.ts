@@ -138,6 +138,7 @@ export const confirmedBalance = pgTable(
 
 export const movementDirectionEnum = pgEnum('movement_direction', ['income', 'expense']);
 export const movementStatusEnum = pgEnum('movement_status', ['pending', 'realized', 'canceled']);
+export const recurrenceCadenceEnum = pgEnum('recurrence_cadence', ['weekly', 'monthly']);
 
 export const financialMovement = pgTable(
   'financial_movements',
@@ -157,6 +158,8 @@ export const financialMovement = pgTable(
 
     // Optional prepared fields
     categoryId: text('category_id'),
+    recurrenceRuleVersionId: text('recurrence_rule_version_id'),
+    occurrenceSequence: integer('occurrence_sequence'),
 
     createdBy: text('created_by')
       .notNull()
@@ -177,10 +180,81 @@ export const financialMovement = pgTable(
     ),
     check(
       'realized_date_requires_realized_status',
-      sql`(${table.status} = 'realized' AND ${table.realizedDate} IS NOT NULL AND ${table.realizedAmountCents} IS NOT NULL) OR (${table.status} != 'realized' AND ${table.realizedDate} IS NULL AND ${table.realizedAmountCents} IS NULL)`,
+      sql`(${table.status} = 'realized' AND ${table.realizedDate} IS NOT NULL AND ${table.realizedAmountCents} IS NOT NULL) OR (${table.status} IN ('pending', 'canceled') AND ${table.realizedDate} IS NULL AND ${table.realizedAmountCents} IS NULL)`,
     ),
     index('financial_movement_space_id_idx').on(table.spaceId),
     index('financial_movement_planned_date_idx').on(table.plannedDate),
+    uniqueIndex('financial_movement_recurrence_occurrence_unique').on(
+      table.recurrenceRuleVersionId,
+      table.occurrenceSequence,
+    ),
+  ],
+);
+
+export const recurrenceSeries = pgTable(
+  'recurrence_series',
+  {
+    id: text('id').primaryKey(),
+    spaceId: text('space_id')
+      .notNull()
+      .references(() => familySpace.id, { onDelete: 'cascade' }),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    createdAt,
+  },
+  (table) => [index('recurrence_series_space_id_idx').on(table.spaceId)],
+);
+
+export const recurrenceRuleVersion = pgTable(
+  'recurrence_rule_versions',
+  {
+    id: text('id').primaryKey(),
+    seriesId: text('series_id')
+      .notNull()
+      .references(() => recurrenceSeries.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    effectiveFrom: date('effective_from').notNull(),
+    effectiveUntil: date('effective_until'),
+    maxOccurrences: integer('max_occurrences'),
+    description: text('description').notNull(),
+    direction: movementDirectionEnum('direction').notNull(),
+    expectedAmountCents: integer('expected_amount_cents').notNull(),
+    cadence: recurrenceCadenceEnum('cadence').notNull(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    createdAt,
+  },
+  (table) => [
+    uniqueIndex('recurrence_rule_version_unique').on(table.seriesId, table.version),
+    check('recurrence_rule_amount_positive', sql`${table.expectedAmountCents} > 0`),
+    check(
+      'recurrence_rule_max_occurrences_positive',
+      sql`${table.maxOccurrences} > 0 OR ${table.maxOccurrences} IS NULL`,
+    ),
+    index('recurrence_rule_effective_from_idx').on(table.effectiveFrom),
+  ],
+);
+
+export const financialPayment = pgTable(
+  'financial_payments',
+  {
+    id: text('id').primaryKey(),
+    movementId: text('movement_id')
+      .notNull()
+      .references(() => financialMovement.id, { onDelete: 'restrict' }),
+    amountCents: integer('amount_cents').notNull(),
+    paidDate: date('paid_date').notNull(),
+    authorId: text('author_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    createdAt,
+  },
+  (table) => [
+    check('financial_payment_amount_positive', sql`${table.amountCents} > 0`),
+    index('financial_payment_movement_id_idx').on(table.movementId),
+    index('financial_payment_paid_date_idx').on(table.paidDate),
   ],
 );
 
