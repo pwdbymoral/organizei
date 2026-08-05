@@ -8,14 +8,21 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      BETTER_AUTH_URL: http://localhost:3000
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with: { version: 11.3.0, run_install: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: { node-version: 24.16.0, cache: pnpm }
       - run: corepack enable && pnpm install --frozen-lockfile && pnpm verify
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    container:
+      image: mcr.microsoft.com/playwright:v1.57.0-noble@sha256:3bed4b1a12f2338642f3d8cba28e291deef3c66bd4a964bbeb3e57bbff511dbd
+      options: --user 1001
     services:
       postgres:
         image: postgres:17-alpine
@@ -25,20 +32,97 @@ jobs:
             POSTGRES_USER: organizei,
             POSTGRES_PASSWORD: organizei_local_only,
           }
-        ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U organizei -d organizei"
           --health-interval 5s --health-timeout 3s --health-retries 20
     env:
-      DATABASE_URL: postgresql://organizei:organizei_local_only@localhost:5432/organizei
+      DATABASE_URL: postgresql://organizei:organizei_local_only@postgres:5432/organizei
       BETTER_AUTH_SECRET: synthetic-ci-secret-with-at-least-32-characters
       BETTER_AUTH_URL: http://127.0.0.1:3000
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with: { version: 11.3.0, run_install: false }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: { node-version: 24.16.0, cache: pnpm }
-      - run: corepack enable && pnpm install --frozen-lockfile && pnpm db:migrate && pnpm db:seed
-      - run: pnpm exec playwright install --with-deps chromium webkit && pnpm test:e2e
+      - name: Install dependencies
+        timeout-minutes: 15
+        run: |
+          corepack enable
+          start_time=$(date +%s)
+          pnpm install --frozen-lockfile
+          end_time=$(date +%s)
+          echo "Installation took $((end_time - start_time)) seconds."
+      - name: Prepare Database
+        run: |
+          start_time=$(date +%s)
+          pnpm --filter @organizei/database exec tsx -e "
+            import { Client } from 'pg';
+            const client = new Client({ connectionString: process.env.DATABASE_URL });
+            client.connect()
+              .then(() => {
+                console.log('DB is ready');
+                client.end();
+              })
+              .catch(e => {
+                console.error(e);
+                process.exit(1);
+              });
+          "
+          end_time=$(date +%s)
+          echo "Database preparation took $((end_time - start_time)) seconds."
+      - name: Run Migrations
+        run: |
+          start_time=$(date +%s)
+          pnpm db:migrate
+          end_time=$(date +%s)
+          echo "Migrations took $((end_time - start_time)) seconds."
+      - name: Run Seed
+        run: |
+          start_time=$(date +%s)
+          pnpm db:seed
+          end_time=$(date +%s)
+          echo "Seed took $((end_time - start_time)) seconds."
+      - name: Start Application
+        env:
+          RUNNER_TRACKING_ID: ''
+        run: |
+          pnpm dev > /tmp/server.log 2>&1 &
+      - name: Wait for Application Health Check
+        run: |
+          start_time=$(date +%s)
+          i=1
+          while [ $i -le 60 ]; do
+            if curl -s http://127.0.0.1:3000 > /dev/null; then
+              end_time=$(date +%s)
+              echo "App started in $((end_time - start_time)) seconds."
+              exit 0
+            fi
+            echo "Waiting for app to start... ($i/60)"
+            sleep 1
+            i=$((i + 1))
+          done
+          echo "App failed to start"
+          exit 1
+      - name: Run Chromium Tests
+        timeout-minutes: 15
+        run: |
+          start_time=$(date +%s)
+          pnpm exec playwright test --project=chromium --workers=1
+          end_time=$(date +%s)
+          echo "Chromium tests took $((end_time - start_time)) seconds."
+      - name: Run WebKit Tests
+        timeout-minutes: 15
+        run: |
+          start_time=$(date +%s)
+          pnpm exec playwright test --project=webkit --workers=1
+          end_time=$(date +%s)
+          echo "WebKit tests took $((end_time - start_time)) seconds."
+      - name: Print Server Log on Failure
+        if: failure()
+        run: |
+          echo "=== Next.js Server Log ==="
+          cat /tmp/server.log || echo "No server log found"
       - if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with: { name: playwright-artifacts, path: 'test-results/', if-no-files-found: ignore }

@@ -2,7 +2,7 @@
 
 Planejador de fluxo de caixa familiar compartilhado, construído em público sem expor dados financeiros.
 
-Status: **fundação técnica concluída**; funcionalidades financeiras estão **planejadas**, não implementadas.
+Status: **bootstrap concluído**; funcionalidades financeiras ainda não estão implementadas. Próximo marco: primeiro vertical slice financeiro.
 
 Stack: Next.js 16, TypeScript estrito, PostgreSQL, Drizzle, Better Auth, Tailwind e Playwright.
 
