@@ -1,19 +1,8 @@
 import { confirmBalance, recordPayment, updateMovement } from '../../actions/financial';
-import {
-  db,
-  confirmedBalance,
-  financialMovement,
-  financialPayment,
-  recurrenceRuleVersion,
-} from '@organizei/database';
-import { eq, desc, inArray } from 'drizzle-orm';
-import { familyMembership } from '@organizei/database';
+import { db, familyMembership } from '@organizei/database';
+import { eq } from 'drizzle-orm';
 import Link from 'next/link';
-import {
-  calculateDailyProjectionWithPayments,
-  calculateMonthlyProjectionWithPayments,
-  toCivilDate,
-} from '@organizei/domain';
+import { toCivilDate } from '@organizei/domain';
 import type { DailyProjection } from '@organizei/domain';
 import { revalidatePath } from 'next/cache';
 import { ThemeToggle } from '../../components/theme-toggle';
@@ -21,11 +10,12 @@ import { LogoutButton } from '../../components/logout-button';
 import { FinancialMovementDialogs } from '../../components/financial-movement-dialogs';
 import { FinancialPaymentForm } from '../../components/financial-payment-form';
 import { auth } from '../../lib/auth';
-import { materializeSpaceRecurrencesCore } from '../../lib/financial-core';
+import { getDashboardData } from '../../lib/dashboard-data';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { matchesTimelineFilters, parseTimelineFilters } from '../../lib/financial-filters';
 import { EmptyState, StatusBadge } from '@organizei/ui';
+import { ForecastChart } from '../../components/forecast-chart';
 
 const moneyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
@@ -71,107 +61,23 @@ export default async function Dashboard({ searchParams }: DashboardProps) {
   }
 
   const spaceId = membership.spaceId;
-  const todayCivil = toCivilDate(new Date(), 'America/Maceio');
-  const timelineFilters = parseTimelineFilters((await searchParams) ?? {});
-  const materializationHorizon = new Date(`${todayCivil}T00:00:00Z`);
-  materializationHorizon.setUTCFullYear(materializationHorizon.getUTCFullYear() + 1);
-  await materializeSpaceRecurrencesCore(
-    spaceId,
-    materializationHorizon.toISOString().slice(0, 10),
-    user.id,
-  );
-
-  // 1. Fetch confirmed balances and movements
-  const lastBalance = await db.query.confirmedBalance.findFirst({
-    where: eq(confirmedBalance.spaceId, spaceId),
-    orderBy: desc(confirmedBalance.confirmedAt),
-  });
-
-  const movements = await db.query.financialMovement.findMany({
-    where: eq(financialMovement.spaceId, spaceId),
-    orderBy: desc(financialMovement.plannedDate),
-  });
-  const payments = movements.length
-    ? await db.query.financialPayment.findMany({
-        where: inArray(
-          financialPayment.movementId,
-          movements.map((movement) => movement.id),
-        ),
-      })
-    : [];
-  const recurrenceRuleIds = movements.flatMap((movement) =>
-    movement.recurrenceRuleVersionId ? [movement.recurrenceRuleVersionId] : [],
-  );
-  const recurrenceRules = recurrenceRuleIds.length
-    ? await db.query.recurrenceRuleVersion.findMany({
-        where: inArray(recurrenceRuleVersion.id, recurrenceRuleIds),
-      })
-    : [];
-  const recurrenceById = new Map(recurrenceRules.map((rule) => [rule.id, rule]));
-
-  // 2. Map schema objects to core domain structures
-  const normalizedMovements = movements.map((m) => ({
-    id: m.id,
-    spaceId: m.spaceId,
-    description: m.description,
-    direction: m.direction as 'income' | 'expense',
-    expectedAmountCents: m.expectedAmountCents,
-    plannedDate: m.plannedDate,
-    status: m.status as 'pending' | 'realized' | 'canceled',
-    realizedAmountCents: m.realizedAmountCents,
-    realizedDate: m.realizedDate,
-    categoryId: m.categoryId,
-    recurrenceRuleVersionId: m.recurrenceRuleVersionId,
-    createdBy: m.createdBy,
-    updatedBy: m.updatedBy,
-    createdAt: m.createdAt,
-    updatedAt: m.updatedAt,
-    version: m.version,
-  }));
-
-  const activeBalance = lastBalance
-    ? {
-        spaceId: lastBalance.spaceId,
-        amountCents: lastBalance.amountCents,
-        confirmedAt: lastBalance.confirmedAt,
-        authorId: lastBalance.authorId,
-        createdAt: lastBalance.createdAt,
-      }
-    : {
-        spaceId,
-        amountCents: 0,
-        confirmedAt: new Date(todayCivil + 'T00:00:00Z'),
-        authorId: user.id,
-        createdAt: new Date(),
-      };
-
-  // 3. Compute projection
-  const horizonDays = 30;
-  const projection = calculateDailyProjectionWithPayments(
+  const data = await getDashboardData(spaceId, user.id);
+  const {
+    today: todayCivil,
+    lastBalance,
     activeBalance,
-    todayCivil,
+    movements,
     normalizedMovements,
     payments,
-    horizonDays,
-  );
-
+    recurrenceById,
+    projection,
+    monthlyProjection,
+    monthlyTotals,
+  } = data;
+  const safeLastBalance = lastBalance ?? null;
   const todayBalanceCents = projection.daily[0]?.balanceCents ?? activeBalance.amountCents;
-  const monthlyProjection = calculateMonthlyProjectionWithPayments(
-    activeBalance,
-    todayCivil,
-    normalizedMovements,
-    payments,
-  );
   const projectedBalances = new Map(projection.daily.map((day) => [day.date, day.balanceCents]));
-  const monthlyTotals = new Map<string, { incomeCents: number; expenseCents: number }>();
-  for (const movement of normalizedMovements) {
-    if (movement.status === 'canceled') continue;
-    const month = movement.plannedDate.slice(0, 7);
-    const current = monthlyTotals.get(month) ?? { incomeCents: 0, expenseCents: 0 };
-    current[movement.direction === 'income' ? 'incomeCents' : 'expenseCents'] +=
-      movement.expectedAmountCents;
-    monthlyTotals.set(month, current);
-  }
+  const timelineFilters = parseTimelineFilters((await searchParams) ?? {});
   const timelineGroups = new Map<string, typeof normalizedMovements>();
   for (const movement of normalizedMovements) {
     if (!matchesTimelineFilters(movement, timelineFilters, todayCivil)) continue;
@@ -226,6 +132,8 @@ export default async function Dashboard({ searchParams }: DashboardProps) {
     revalidatePath('/app');
   }
 
+  return <OverviewDashboard data={data} />;
+
   return (
     <main className="bg-background text-text mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 overflow-x-clip p-4 sm:p-6">
       <header className="border-border flex items-center justify-between border-b pb-4">
@@ -249,10 +157,10 @@ export default async function Dashboard({ searchParams }: DashboardProps) {
           <p className="text-text-muted mt-1 text-xs">
             Menor saldo nos próximos 30 dias: {formatMoney(projection.lowestBalanceCents)}
           </p>
-          {lastBalance ? (
+          {safeLastBalance ? (
             <p className="text-xxs text-text-muted mt-1">
-              Último checkpoint de {formatMoney(lastBalance.amountCents)} em{' '}
-              {formatDate(toCivilDate(lastBalance.confirmedAt))}
+              Último checkpoint de {formatMoney(safeLastBalance!.amountCents)} em{' '}
+              {formatDate(toCivilDate(safeLastBalance!.confirmedAt))}
             </p>
           ) : (
             <p className="text-xxs text-text-muted mt-1">Sem checkpoint de saldo confirmado.</p>
@@ -320,7 +228,7 @@ export default async function Dashboard({ searchParams }: DashboardProps) {
         {projection.firstNegativeDate && (
           <div className="border-danger bg-danger/10 text-danger mb-3 rounded border p-3 text-xs">
             Atenção: Saldo projetado ficará negativo a partir de{' '}
-            {formatDate(projection.firstNegativeDate)}. Menor saldo previsto:{' '}
+            {formatDate(projection.firstNegativeDate!)}. Menor saldo previsto:{' '}
             {formatMoney(projection.lowestBalanceCents)}
           </div>
         )}
@@ -424,7 +332,7 @@ export default async function Dashboard({ searchParams }: DashboardProps) {
               defaultValue={
                 timelineFilters.minAmountCents === null
                   ? ''
-                  : (timelineFilters.minAmountCents / 100).toFixed(2).replace('.', ',')
+                  : ((timelineFilters.minAmountCents ?? 0) / 100).toFixed(2).replace('.', ',')
               }
               inputMode="decimal"
               placeholder="R$ 0,00"
@@ -438,7 +346,7 @@ export default async function Dashboard({ searchParams }: DashboardProps) {
               defaultValue={
                 timelineFilters.maxAmountCents === null
                   ? ''
-                  : (timelineFilters.maxAmountCents / 100).toFixed(2).replace('.', ',')
+                  : ((timelineFilters.maxAmountCents ?? 0) / 100).toFixed(2).replace('.', ',')
               }
               inputMode="decimal"
               placeholder="R$ 0,00"
@@ -592,6 +500,136 @@ export default async function Dashboard({ searchParams }: DashboardProps) {
           </div>
         )}
       </section>
+    </main>
+  );
+}
+
+function OverviewDashboard({ data }: { data: Awaited<ReturnType<typeof getDashboardData>> }) {
+  const todayBalanceCents =
+    data.projection.daily[0]?.balanceCents ?? data.activeBalance.amountCents;
+  const chartData = data.projection.daily.slice(0, 8).map((day) => ({
+    date: day.date,
+    label: formatDate(day.date).slice(0, 5),
+    balanceCents: day.balanceCents,
+  }));
+  const attention = data.projection.firstNegativeDate;
+  return (
+    <main className="bg-background text-text min-h-screen">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-5 sm:px-8 sm:py-8">
+        <header className="flex items-center justify-between">
+          <div>
+            <p className="text-text-muted text-sm">Visão da família</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Organizei</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <LogoutButton />
+          </div>
+        </header>
+
+        <section className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+          <article className="bg-primary rounded-3xl p-6 text-white shadow-sm sm:p-8">
+            <p className="text-sm text-white/70">Saldo previsto para hoje</p>
+            <p className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
+              {formatMoney(todayBalanceCents)}
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3 text-sm text-white/80">
+              <span>Saldo confirmado: {formatMoney(data.activeBalance.amountCents)}</span>
+              <span className="text-white/40">•</span>
+              <span>Menor saldo: {formatMoney(data.projection.lowestBalanceCents)}</span>
+            </div>
+            {attention && (
+              <p className="mt-4 rounded-xl bg-white/10 p-3 text-sm">
+                O saldo pode ficar negativo em {formatDate(attention)}. Revise as próximas
+                movimentações.
+              </p>
+            )}
+          </article>
+          <div className="grid grid-cols-2 gap-3">
+            <Link
+              href="/add"
+              className="border-border bg-surface text-text hover:bg-surface-elevated flex min-h-32 flex-col justify-between rounded-2xl border p-4 transition-colors"
+            >
+              <span className="text-primary text-2xl">＋</span>
+              <span className="font-medium">Adicionar movimentação</span>
+            </Link>
+            <Link
+              href="/app/projection"
+              className="border-border bg-surface text-text hover:bg-surface-elevated flex min-h-32 flex-col justify-between rounded-2xl border p-4 transition-colors"
+            >
+              <span className="text-primary text-2xl">↗</span>
+              <span className="font-medium">Ver previsão completa</span>
+            </Link>
+            <Link
+              href="/app/movements"
+              className="border-border bg-surface text-text hover:bg-surface-elevated col-span-2 flex items-center justify-between rounded-2xl border p-4 transition-colors"
+            >
+              <span className="font-medium">Todas as movimentações</span>
+              <span aria-hidden="true">→</span>
+            </Link>
+            <Link
+              href="/app/balance"
+              className="border-border bg-surface text-text hover:bg-surface-elevated col-span-2 flex items-center justify-between rounded-2xl border p-4 transition-colors"
+            >
+              <span className="font-medium">Atualizar saldo real</span>
+              <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <article className="border-border bg-surface rounded-3xl border p-5 sm:p-6">
+            <div className="mb-2 flex items-start justify-between">
+              <div>
+                <p className="text-text-muted text-sm">Próximos 7 dias</p>
+                <h2 className="mt-1 text-xl font-semibold">Como o saldo pode evoluir</h2>
+              </div>
+              <Link href="/app/projection" className="text-primary text-sm font-medium">
+                Detalhes
+              </Link>
+            </div>
+            <ForecastChart data={chartData} />
+            <p className="text-text-muted text-xs">
+              Toque ou passe o mouse sobre a linha para consultar cada dia.
+            </p>
+          </article>
+          <article className="border-border bg-surface rounded-3xl border p-5 sm:p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Movimentações recentes</h2>
+              <Link href="/app/movements" className="text-primary text-sm font-medium">
+                Ver todas
+              </Link>
+            </div>
+            {data.recentMovements.length === 0 ? (
+              <EmptyState>Nenhuma movimentação ainda.</EmptyState>
+            ) : (
+              <div className="divide-border divide-y">
+                {data.recentMovements.map((movement) => (
+                  <div key={movement.id} className="flex items-center justify-between gap-3 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{movement.description}</p>
+                      <p className="text-text-muted text-xs">
+                        {formatDate(movement.plannedDate)} ·{' '}
+                        {movement.direction === 'income' ? 'Entrada' : 'Saída'}
+                      </p>
+                    </div>
+                    <span
+                      className={
+                        movement.direction === 'income'
+                          ? 'text-positive text-sm font-semibold'
+                          : 'text-danger text-sm font-semibold'
+                      }
+                    >
+                      {movement.direction === 'income' ? '+' : '-'}{' '}
+                      {formatMoney(movement.expectedAmountCents)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
+        </section>
+      </div>
     </main>
   );
 }

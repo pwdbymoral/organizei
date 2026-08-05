@@ -126,7 +126,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageA.getByRole('button', { name: 'Entrar' }).click();
 
     // Check redirection to dashboard
-    await expect(pageA.getByText('Espaço familiar compartilhado')).toBeVisible({ timeout: 15000 });
+    await expect(pageA.getByText('Visão da família')).toBeVisible({ timeout: 15000 });
 
     // Verify accessibility of dashboard @a11y
     expect(await new AxeBuilder({ page: pageA }).analyze()).toHaveProperty('violations', []);
@@ -186,6 +186,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await expect(pageA.getByText('Conta de Luz')).toBeVisible();
 
     // Timeline search accepts description and Brazilian currency values without changing projections.
+    await pageA.goto('/app/movements?q=50%2C00');
     await pageA.getByLabel('Buscar descrição ou valor').fill('50,00');
     await pageA.getByRole('button', { name: 'Aplicar filtros' }).click();
     await expect(pageA).toHaveURL(/q=50(?:%2C|,)00/);
@@ -193,6 +194,8 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await expect(pageA.getByText('Conta de Luz')).not.toBeVisible();
     await pageA.getByRole('link', { name: 'Limpar' }).click();
     await expect(pageA.getByText('Conta de Luz')).toBeVisible();
+
+    await pageA.goto('/app');
 
     // Recurring movement plus an occurrence-only exception must remain operable on mobile.
     await pageA.getByRole('link', { name: '+ Movimentação' }).click();
@@ -202,6 +205,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageA.getByLabel('Valor (R$)').fill('20,00');
     await pageA.getByLabel('Data planejada').fill(today);
     await pageA.getByRole('button', { name: 'Salvar' }).click();
+    await pageA.goto('/app/movements');
     const recurringEntry = pageA.getByText('Mensalidade', { exact: true }).first();
     await expect(recurringEntry).toBeVisible();
 
@@ -231,7 +235,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageB.getByRole('button', { name: 'Entrar' }).click();
 
     // User B should see Space 1 data
-    await expect(pageB.getByText('Espaço familiar compartilhado')).toBeVisible({ timeout: 15000 });
+    await expect(pageB.getByText('Visão da família')).toBeVisible({ timeout: 15000 });
     await expect(pageB.getByText('R$ 120,00').first()).toBeVisible();
     await expect(pageB.getByText('Salário Mensal')).toBeVisible();
 
@@ -254,7 +258,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageC.getByRole('button', { name: 'Entrar' }).click();
 
     // User C should see clean/empty state for Space 2
-    await expect(pageC.getByText('Espaço familiar compartilhado')).toBeVisible({ timeout: 15000 });
+    await expect(pageC.getByText('Visão da família')).toBeVisible({ timeout: 15000 });
     await expect(pageC.getByText('R$ 0,00').first()).toBeVisible();
     await expect(pageC.getByText('Nenhuma movimentação cadastrada.')).toBeVisible();
 
