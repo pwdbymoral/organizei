@@ -10,6 +10,7 @@
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.6.26",
     "@organizei/database": "workspace:*",
+    "@organizei/domain": "workspace:*",
     "@organizei/ui": "workspace:*",
     "better-auth": "1.6.26",
     "clsx": "2.1.1",

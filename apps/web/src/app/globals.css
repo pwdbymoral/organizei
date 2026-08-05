@@ -42,11 +42,13 @@ body {
 }
 a,
 button,
-input {
+input,
+select {
   outline-offset: 3px;
 }
 a:focus-visible,
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: 3px solid var(--color-focus);
 }

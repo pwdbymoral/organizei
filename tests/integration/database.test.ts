@@ -51,7 +51,7 @@ describe('administrative CLI with PostgreSQL', () => {
     });
   }, 60_000);
 
-  afterAll(async () => container.stop());
+  afterAll(async () => container?.stop());
 
   it('executes create, list, reset and session revocation without leaking secrets', async () => {
     const email = 'admin-cli@example.test';

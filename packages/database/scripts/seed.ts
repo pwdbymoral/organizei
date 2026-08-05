@@ -1,28 +1,40 @@
 import { eq } from 'drizzle-orm';
 import { hashPassword } from 'better-auth/crypto';
-import { account, db, pool, user } from '../src';
+import { account, db, familyMembership, familySpace, pool, user } from '../src';
+
+const demoSpaceId = 'demo-space-family';
+const demoUserId = 'demo-user-ana';
 async function main() {
+  // Clear any existing demo user data to force credential hashes update
+  await db.delete(account).where(eq(account.id, 'demo-account-ana')).execute();
+  await db.delete(user).where(eq(user.id, demoUserId)).execute();
+
   await db
-    .insert(user)
-    .values({
-      id: 'demo-user-ana',
-      name: 'Ana Demonstração',
-      email: 'ana@example.test',
-      emailVerified: true,
-    })
-    .onConflictDoNothing({ target: user.email });
-  const found = await db.select().from(user).where(eq(user.email, 'ana@example.test'));
-  if (found.length !== 1) throw new Error('Synthetic seed did not converge.');
-  await db
-    .insert(account)
-    .values({
-      id: 'demo-account-ana',
-      accountId: 'demo-user-ana',
-      providerId: 'credential',
-      userId: 'demo-user-ana',
-      password: await hashPassword('senha-sintetica-segura-123'),
-    })
-    .onConflictDoNothing({ target: account.id });
+    .insert(familySpace)
+    .values({ id: demoSpaceId, name: 'Espaço Demonstração' })
+    .onConflictDoNothing({ target: familySpace.id });
+
+  await db.insert(user).values({
+    id: demoUserId,
+    name: 'Ana Demonstração',
+    email: 'ana@example.test',
+    emailVerified: true,
+  });
+
+  await db.insert(account).values({
+    id: 'demo-account-ana',
+    accountId: demoUserId,
+    providerId: 'credential',
+    userId: demoUserId,
+    password: await hashPassword('senha-sintetica-segura-123'),
+  });
+
+  await db.insert(familyMembership).values({
+    id: 'demo-membership-ana',
+    spaceId: demoSpaceId,
+    userId: demoUserId,
+    role: 'admin',
+  });
   await pool.end();
 }
 void main();

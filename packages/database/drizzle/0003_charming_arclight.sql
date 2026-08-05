@@ -1,0 +1,4 @@
+ALTER TABLE "financial_movements" DROP CONSTRAINT "realized_date_requires_realized_status";--> statement-breakpoint
+CREATE UNIQUE INDEX "family_membership_space_user_unique" ON "family_memberships" USING btree ("space_id","user_id");--> statement-breakpoint
+ALTER TABLE "confirmed_balances" ADD CONSTRAINT "confirmed_balance_amount_nonnegative" CHECK ("confirmed_balances"."amount_cents" >= 0);--> statement-breakpoint
+ALTER TABLE "financial_movements" ADD CONSTRAINT "realized_date_requires_realized_status" CHECK (("financial_movements"."status" = 'realized' AND "financial_movements"."realized_date" IS NOT NULL AND "financial_movements"."realized_amount_cents" IS NOT NULL) OR ("financial_movements"."status" != 'realized' AND "financial_movements"."realized_date" IS NULL AND "financial_movements"."realized_amount_cents" IS NULL));

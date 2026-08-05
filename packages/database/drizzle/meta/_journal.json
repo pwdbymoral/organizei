@@ -15,6 +15,20 @@
       "when": 1785945365132,
       "tag": "0001_harsh_skullbuster",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785958884191,
+      "tag": "0002_smiling_stone_men",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785964516238,
+      "tag": "0003_charming_arclight",
+      "breakpoints": true
     }
   ]
 }

@@ -9,5 +9,9 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
   emailAndPassword: { enabled: true, disableSignUp: true },
   advanced: { useSecureCookies: process.env.NODE_ENV === 'production' },
-  rateLimit: { enabled: true, window: 60, max: 5 },
+  rateLimit: {
+    enabled: process.env.ORGANIZEI_E2E !== 'true',
+    window: 60,
+    max: 5,
+  },
 });

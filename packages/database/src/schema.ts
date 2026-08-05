@@ -1,4 +1,16 @@
-import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import {
+  boolean,
+  index,
+  pgTable,
+  text,
+  timestamp,
+  integer,
+  date,
+  check,
+  pgEnum,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 
 const createdAt = timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
 
@@ -69,5 +81,119 @@ export const administrativeAudit = pgTable('administrative_audit', {
   action: text('action').notNull(),
   targetUserId: text('target_user_id').references(() => user.id, { onDelete: 'set null' }),
   targetEmail: text('target_email').notNull(),
+  createdAt,
+});
+
+// Domain: Family Space and Memberships
+
+export const familySpace = pgTable('family_spaces', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  createdAt,
+});
+
+export const familyMembershipRoleEnum = pgEnum('family_membership_role', ['member', 'admin']);
+
+export const familyMembership = pgTable(
+  'family_memberships',
+  {
+    id: text('id').primaryKey(),
+    spaceId: text('space_id')
+      .notNull()
+      .references(() => familySpace.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    role: familyMembershipRoleEnum('role').notNull().default('member'),
+    createdAt,
+  },
+  (table) => [
+    index('family_membership_space_id_idx').on(table.spaceId),
+    index('family_membership_user_id_idx').on(table.userId),
+    uniqueIndex('family_membership_space_user_unique').on(table.spaceId, table.userId),
+  ],
+);
+
+// Domain: Financial Slice
+
+export const confirmedBalance = pgTable(
+  'confirmed_balances',
+  {
+    id: text('id').primaryKey(),
+    spaceId: text('space_id')
+      .notNull()
+      .references(() => familySpace.id, { onDelete: 'cascade' }),
+    amountCents: integer('amount_cents').notNull(),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }).notNull(),
+    authorId: text('author_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    createdAt,
+  },
+  (table) => [
+    check('confirmed_balance_amount_nonnegative', sql`${table.amountCents} >= 0`),
+    index('confirmed_balance_space_id_idx').on(table.spaceId),
+  ],
+);
+
+export const movementDirectionEnum = pgEnum('movement_direction', ['income', 'expense']);
+export const movementStatusEnum = pgEnum('movement_status', ['pending', 'realized', 'canceled']);
+
+export const financialMovement = pgTable(
+  'financial_movements',
+  {
+    id: text('id').primaryKey(),
+    spaceId: text('space_id')
+      .notNull()
+      .references(() => familySpace.id, { onDelete: 'cascade' }),
+    description: text('description').notNull(),
+    direction: movementDirectionEnum('direction').notNull(),
+    expectedAmountCents: integer('expected_amount_cents').notNull(),
+    plannedDate: date('planned_date').notNull(), // YYYY-MM-DD
+    status: movementStatusEnum('status').notNull(),
+
+    realizedAmountCents: integer('realized_amount_cents'),
+    realizedDate: date('realized_date'),
+
+    // Optional prepared fields
+    categoryId: text('category_id'),
+
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    updatedBy: text('updated_by')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+
+    createdAt,
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    version: integer('version').notNull().default(1),
+  },
+  (table) => [
+    check('amount_positive', sql`${table.expectedAmountCents} > 0`),
+    check(
+      'realized_amount_positive',
+      sql`${table.realizedAmountCents} > 0 OR ${table.realizedAmountCents} IS NULL`,
+    ),
+    check(
+      'realized_date_requires_realized_status',
+      sql`(${table.status} = 'realized' AND ${table.realizedDate} IS NOT NULL AND ${table.realizedAmountCents} IS NOT NULL) OR (${table.status} != 'realized' AND ${table.realizedDate} IS NULL AND ${table.realizedAmountCents} IS NULL)`,
+    ),
+    index('financial_movement_space_id_idx').on(table.spaceId),
+    index('financial_movement_planned_date_idx').on(table.plannedDate),
+  ],
+);
+
+export const financialAuditLog = pgTable('financial_audit_logs', {
+  id: text('id').primaryKey(),
+  spaceId: text('space_id')
+    .notNull()
+    .references(() => familySpace.id, { onDelete: 'cascade' }),
+  movementId: text('movement_id'), // not a strict FK in case of hard delete, but we shouldn't hard delete realized
+  authorId: text('author_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'restrict' }),
+  action: text('action').notNull(), // 'create', 'update', 'delete', 'confirm_balance'
+  changes: text('changes'), // JSON string
   createdAt,
 });
