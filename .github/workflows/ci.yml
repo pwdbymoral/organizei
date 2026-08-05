@@ -86,7 +86,7 @@ jobs:
         env:
           RUNNER_TRACKING_ID: ''
         run: |
-          pnpm dev &
+          pnpm dev > /tmp/server.log 2>&1 &
       - name: Wait for Application Health Check
         run: |
           start_time=$(date +%s)
@@ -117,6 +117,11 @@ jobs:
           pnpm exec playwright test --project=webkit --workers=1
           end_time=$(date +%s)
           echo "WebKit tests took $((end_time - start_time)) seconds."
+      - name: Print Server Log on Failure
+        if: failure()
+        run: |
+          echo "=== Next.js Server Log ==="
+          cat /tmp/server.log || echo "No server log found"
       - if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with: { name: playwright-artifacts, path: 'test-results/', if-no-files-found: ignore }
