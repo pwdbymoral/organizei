@@ -131,6 +131,22 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     // Verify accessibility of dashboard @a11y
     expect(await new AxeBuilder({ page: pageA }).analyze()).toHaveProperty('violations', []);
 
+    for (const viewport of [
+      { width: 320, height: 800 },
+      { width: 375, height: 800 },
+      { width: 768, height: 900 },
+      { width: 1024, height: 900 },
+      { width: 1440, height: 900 },
+    ]) {
+      await pageA.setViewportSize(viewport);
+      await expect
+        .poll(() => pageA.evaluate(() => document.documentElement.scrollWidth), {
+          message: `overflow at ${viewport.width}px`,
+        })
+        .toBeLessThanOrEqual(viewport.width);
+      await expect(pageA.getByRole('heading', { name: 'Organizei' })).toBeVisible();
+    }
+
     // Confirm initial state (R$ 0,00)
     await expect(pageA.getByText('R$ 0,00').first()).toBeVisible();
 

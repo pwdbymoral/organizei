@@ -25,6 +25,7 @@ import { materializeSpaceRecurrencesCore } from '../../lib/financial-core';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { matchesTimelineFilters, parseTimelineFilters } from '../../lib/financial-filters';
+import { EmptyState, StatusBadge } from '@organizei/ui';
 
 const moneyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
@@ -226,7 +227,7 @@ export default async function Dashboard({ searchParams }: DashboardProps) {
   }
 
   return (
-    <main className="bg-background text-text mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 p-4 sm:p-6">
+    <main className="bg-background text-text mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 overflow-x-clip p-4 sm:p-6">
       <header className="border-border flex items-center justify-between border-b pb-4">
         <div>
           <h1 className="text-xl font-bold">Organizei</h1>
@@ -461,13 +462,9 @@ export default async function Dashboard({ searchParams }: DashboardProps) {
         </form>
 
         {normalizedMovements.length === 0 ? (
-          <div className="border-border text-text-muted bg-surface rounded border border-dashed py-8 text-center text-xs">
-            Nenhuma movimentação cadastrada.
-          </div>
+          <EmptyState>Nenhuma movimentação cadastrada.</EmptyState>
         ) : timelineDays.length === 0 ? (
-          <div className="border-border text-text-muted bg-surface rounded border border-dashed py-8 text-center text-sm">
-            Nenhuma movimentação encontrada. Tente ajustar os filtros.
-          </div>
+          <EmptyState>Nenhuma movimentação encontrada. Tente ajustar os filtros.</EmptyState>
         ) : (
           <div className="space-y-4">
             {timelineDays.map(([date, dayMovements]) => (
@@ -521,14 +518,8 @@ export default async function Dashboard({ searchParams }: DashboardProps) {
                           {isIncome ? '+ ' : '- '}
                           {formatMoney(displayAmount)}
                         </span>
-                        <span
-                          className={`text-xxs rounded-full px-2 py-0.5 font-medium ${
-                            isRealized
-                              ? 'bg-positive/20 text-positive'
-                              : isCanceled
-                                ? 'bg-surface-elevated text-text-muted'
-                                : 'bg-warning/20 text-warning'
-                          }`}
+                        <StatusBadge
+                          tone={isRealized ? 'positive' : isCanceled ? 'neutral' : 'warning'}
                         >
                           {isRealized
                             ? 'Realizado'
@@ -537,7 +528,7 @@ export default async function Dashboard({ searchParams }: DashboardProps) {
                               : isOverdue
                                 ? 'Vencido'
                                 : 'Pendente'}
-                        </span>
+                        </StatusBadge>
                         <div className="flex flex-wrap gap-2">
                           {!isRealized && !isCanceled && (
                             <FinancialPaymentForm
