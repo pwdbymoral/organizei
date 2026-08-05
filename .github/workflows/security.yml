@@ -1,0 +1,27 @@
+name: Security
+on: { push: { branches: [main] }, pull_request: {}, schedule: [{ cron: '17 3 * * 1' }] }
+permissions: { contents: read, security-events: write }
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: aquasecurity/trivy-action@b6640b6a38f2bb8af6f5a10d1a827d51d96e4f3e
+        with:
+          {
+            scan-type: fs,
+            format: sarif,
+            output: trivy-results.sarif,
+            severity: HIGH,
+            CRITICAL,
+            ignore-unfixed: true,
+          }
+      - uses: github/codeql-action/upload-sarif@e5968c3d492f83b30120f3dcb0e9bb0382c0134c
+        with: { sarif_file: trivy-results.sarif }
+      - uses: zricethezav/gitleaks-action@d7fcb8110d6fbe31581c33c5e406810da29a7d3c
+      - uses: google/osv-scanner-action/osv-scanner-action@a74223c3d6b6e0bb912786c087bd0a3f3eb90d0b
+        with: { scan-args: --lockfile=pnpm-lock.yaml }

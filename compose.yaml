@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      { POSTGRES_DB: organizei, POSTGRES_USER: organizei, POSTGRES_PASSWORD: organizei_local_only }
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    ports: ['5433:5432']
+    healthcheck:
+      {
+        test: [CMD-SHELL, pg_isready -U organizei -d organizei],
+        interval: 5s,
+        timeout: 3s,
+        retries: 20,
+      }
+    networks: [organizei]
+  web:
+    build: .
+    environment:
+      {
+        DATABASE_URL: postgresql://organizei:organizei_local_only@db:5432/organizei,
+        BETTER_AUTH_URL: http://localhost:3000,
+        BETTER_AUTH_SECRET: development-only-change-me-to-at-least-32-characters,
+      }
+    ports: ['3000:3000']
+    depends_on: { db: { condition: service_healthy } }
+    networks: [organizei]
+volumes: { postgres-data: {} }
+networks: { organizei: {} }

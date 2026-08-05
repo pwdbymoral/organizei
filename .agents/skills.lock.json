@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "skills": [
+    {
+      "name": "minimal-change",
+      "origin": "local adaptation of Ponytail principle",
+      "commit": null,
+      "license": "N/A",
+      "reviewedAt": "2026-08-05",
+      "hash": "local",
+      "hasScripts": false,
+      "needsNetwork": false,
+      "notes": "Principle only; no vendored upstream content."
+    },
+    {
+      "name": "test-driven-development",
+      "origin": "local adaptation inspired by Superpowers",
+      "commit": null,
+      "license": "N/A",
+      "reviewedAt": "2026-08-05",
+      "hash": "local",
+      "hasScripts": false,
+      "needsNetwork": false,
+      "notes": "No external content copied."
+    }
+  ]
+}

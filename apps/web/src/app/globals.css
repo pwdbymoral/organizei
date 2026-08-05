@@ -1,0 +1,52 @@
+@import 'tailwindcss';
+@custom-variant dark (&:where(.dark, .dark *));
+@theme {
+  --color-background: #f7f7f4;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-text: #1b1c1a;
+  --color-text-muted: #62665f;
+  --color-border: #d8dbd3;
+  --color-primary: #1d6a4d;
+  --color-positive: #19734d;
+  --color-warning: #9a5b00;
+  --color-danger: #af342c;
+  --color-focus: #155eef;
+}
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+  --color-background: #171817;
+  --color-surface: #20221f;
+  --color-surface-elevated: #2a2d29;
+  --color-text: #f1f3ed;
+  --color-text-muted: #c2c7bd;
+  --color-border: #454a43;
+  --color-primary: #67c399;
+  --color-positive: #6ed6a0;
+  --color-warning: #ffbe5c;
+  --color-danger: #ff8a80;
+  --color-focus: #84adff;
+}
+* {
+  border-color: var(--color-border);
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: Arial, sans-serif;
+}
+a,
+button,
+input {
+  outline-offset: 3px;
+}
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--color-focus);
+}
