@@ -6,6 +6,8 @@ import {
   account,
   familySpace,
   familyMembership,
+  financialMovement,
+  financialPayment,
 } from '../../packages/database/src/index';
 import { hashPassword } from 'better-auth/crypto';
 import { randomUUID } from 'node:crypto';
@@ -87,6 +89,21 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
   test.afterAll(async () => {
     // Clean up spaces to trigger cascading delete
     if (space1Id && space2Id) {
+      const movements = await db
+        .select({ id: financialMovement.id })
+        .from(financialMovement)
+        .where(inArray(financialMovement.spaceId, [space1Id, space2Id]));
+      if (movements.length) {
+        await db
+          .delete(financialPayment)
+          .where(
+            inArray(
+              financialPayment.movementId,
+              movements.map((movement) => movement.id),
+            ),
+          )
+          .execute();
+      }
       await db
         .delete(familySpace)
         .where(inArray(familySpace.id, [space1Id, space2Id]))

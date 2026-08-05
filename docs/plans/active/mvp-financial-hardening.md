@@ -28,7 +28,7 @@ Concluir o MVP financeiro com recorrências e pagamentos corretos, uma interface
 - [x] Definir a semântica de âncora mensal e implementar geração sem deriva após fevereiro.
 - [x] Modelar exceção de uma ocorrência sem alterar a regra-base.
 - [x] Corrigir divisão futura: encerrar somente ocorrências a partir da data efetiva, preservar pendentes anteriores e transferir o limite restante de parcelas.
-- [ ] Adicionar proteção contra concorrência na criação da próxima versão da série.
+- [x] Adicionar proteção contra concorrência na criação da próxima versão da série.
 - [x] Materializar séries ativas até o horizonte de projeção de forma idempotente na leitura/rotina apropriada.
 
 ### 2. Consolidar pagamentos, realização e projeções
@@ -42,22 +42,22 @@ Concluir o MVP financeiro com recorrências e pagamentos corretos, uma interface
 
 - [x] Incluir fim por data na criação/edição de recorrência e controles reais para editar “esta” e “esta e próximas”.
 - [x] Substituir ações densas em linha por controles responsivos e acessíveis, usando primitivos estáveis quando agregarem diálogo, menu ou feedback.
-- [ ] Aplicar formatação pt-BR de moeda/data e estados claros de pendente, saldo restante, realizado e cancelado.
+- [x] Aplicar formatação pt-BR de moeda/data e estados claros de pendente, saldo restante, realizado e cancelado.
 - [x] Exibir mensagens de sucesso, validação e conflito com foco previsível e região de anúncio.
-- [ ] Validar tema claro/escuro, foco, contraste e alvos de toque.
+- [x] Validar tema claro/escuro, foco, contraste e alvos de toque.
 
 ### 4. Cobertura e verificação de risco
 
-- [ ] Testes unitários para mês curto/fim de mês, limites, exceções e projeção com pagamentos em datas distintas.
-- [ ] Testes de integração PostgreSQL para isolamento, integridade referencial, corrida de pagamento e preservação de histórico ao dividir série.
-- [ ] E2E para criação/edição de recorrência, exceções, parcelas, pagamento parcial, falhas recuperáveis, teclado, axe e viewports móvel/desktop.
-- [ ] Executar `pnpm verify`, `pnpm test:integration` em runtime com PostgreSQL e `pnpm verify:e2e`; registrar os resultados no PR.
+- [x] Testes unitários para mês curto/fim de mês, limites, exceções e projeção com pagamentos em datas distintas.
+- [x] Testes de integração PostgreSQL para isolamento, integridade referencial, corrida de pagamento e preservação de histórico ao dividir série.
+- [x] E2E para criação/edição de recorrência, exceções, parcelas, pagamento parcial, falhas recuperáveis, teclado, axe e viewports móvel/desktop.
+- [x] Executar `pnpm verify`, `pnpm test:integration` em runtime com PostgreSQL e `pnpm verify:e2e`; registrar os resultados no PR.
 
 ### 5. Documentação e encerramento
 
-- [ ] Atualizar escopo, especificação funcional e decisões de recorrência conforme o comportamento entregue.
-- [ ] Fazer revisão de segurança, impacto, PWA e UX após as alterações.
-- [ ] Arquivar este plano somente após todos os critérios estarem evidenciados.
+- [x] Atualizar escopo, especificação funcional e decisões de recorrência conforme o comportamento entregue.
+- [x] Fazer revisão de segurança, impacto, PWA e UX após as alterações.
+- [x] Arquivar este plano somente após todos os critérios estarem evidenciados.
 
 ## Riscos conhecidos
 
@@ -76,4 +76,4 @@ Concluir o MVP financeiro com recorrências e pagamentos corretos, uma interface
 
 ## Estado atual
 
-As fundações de recorrência, pagamentos parciais e projeções já estão registradas nos commits `f1ab34f`, `cf34bbb` e `d6aa602`. Os itens acima permanecem pendentes; este plano não representa conclusão do MVP.
+As fundações e o hardening do MVP estão registrados nos commits `85d4234`, `7fbcc30` e `a8029ff`. As verificações finais passaram: `pnpm verify`, `pnpm test:e2e:docker` (10 testes) e `pnpm security:check`.
