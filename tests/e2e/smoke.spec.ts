@@ -43,7 +43,7 @@ test('authentication, protected route, theme and logout @a11y @pwa', async ({ pa
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(320);
-  await page.goto('/app');
+  await page.goto('/app/more');
   await expect(page.getByLabel('Tema').getByRole('button', { name: 'Escuro' })).toBeEnabled();
   await page.getByLabel('Tema').getByRole('button', { name: 'Escuro' }).click();
   await expect(page.locator('html')).toHaveClass(/dark/);

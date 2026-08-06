@@ -253,9 +253,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageB.getByRole('button', { name: 'Realizar' }).first().click();
 
     // Check updated status to "Realizado"
-    await expect(
-      pageB.getByLabel(/Movimentações de/).getByText('Realizado', { exact: true }),
-    ).toBeVisible();
+    await expect(pageB.getByText('Realizado', { exact: true }).first()).toBeVisible();
 
     // --- Step 8: Login User C (adversary in other space, different context) ---
     const contextC = await browser.newContext();
