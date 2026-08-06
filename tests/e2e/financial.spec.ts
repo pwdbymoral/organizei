@@ -126,7 +126,9 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageA.getByRole('button', { name: 'Entrar' }).click();
 
     // Check redirection to dashboard
-    await expect(pageA.getByText('Visão da família')).toBeVisible({ timeout: 15000 });
+    await expect(pageA.getByRole('heading', { name: 'Visão geral' })).toBeVisible({
+      timeout: 15000,
+    });
 
     // Verify accessibility of dashboard @a11y
     expect(await new AxeBuilder({ page: pageA }).analyze()).toHaveProperty('violations', []);
@@ -235,7 +237,9 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageB.getByRole('button', { name: 'Entrar' }).click();
 
     // User B should see Space 1 data
-    await expect(pageB.getByText('Visão da família')).toBeVisible({ timeout: 15000 });
+    await expect(pageB.getByRole('heading', { name: 'Visão geral' })).toBeVisible({
+      timeout: 15000,
+    });
     await expect(pageB.getByText('R$ 120,00').first()).toBeVisible();
     await expect(pageB.getByText('Salário Mensal')).toBeVisible();
 
@@ -258,7 +262,9 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageC.getByRole('button', { name: 'Entrar' }).click();
 
     // User C should see clean/empty state for Space 2
-    await expect(pageC.getByText('Visão da família')).toBeVisible({ timeout: 15000 });
+    await expect(pageC.getByRole('heading', { name: 'Visão geral' })).toBeVisible({
+      timeout: 15000,
+    });
     await expect(pageC.getByText('R$ 0,00').first()).toBeVisible();
     await expect(pageC.getByText('Nenhuma movimentação cadastrada.')).toBeVisible();
 
