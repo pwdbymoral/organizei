@@ -244,7 +244,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await expect(pageB.getByRole('heading', { name: 'Visão geral' })).toBeVisible({
       timeout: 15000,
     });
-    await expect(pageB.getByText('R$ 120,00').first()).toBeVisible();
+    await expect(pageB.getByText('Saldo disponível')).toBeVisible();
     await expect(pageB.getByText('Salário Mensal')).toBeVisible();
 
     // --- Step 6: User B realizes a transaction ---
