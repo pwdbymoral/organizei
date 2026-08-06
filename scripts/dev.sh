@@ -16,6 +16,16 @@ if [ -f .env.local ]; then
   # shellcheck disable=SC1091
   source .env.local
   set +a
+  if [[ "${DATABASE_URL:-}" == *"localhost:5433"* ]]; then
+    if ! command -v docker >/dev/null 2>&1; then
+      echo "DATABASE_URL aponta para localhost:5433, mas Docker não está disponível. Inicie o PostgreSQL local ou ajuste DATABASE_URL." >&2
+      exit 1
+    fi
+    docker compose up -d db
+    until docker compose exec -T db pg_isready -U organizei -d organizei >/dev/null 2>&1; do
+      sleep 1
+    done
+  fi
   pnpm db:migrate
 fi
 
@@ -23,4 +33,4 @@ fi
 # by a different Node/Next process or an interrupted build before booting.
 rm -rf apps/web/.next/dev/cache/turbopack apps/web/.next/dev/lock
 
-exec pnpm --filter @organizei/web dev
+exec pnpm --filter @organizei/web dev --port "${PORT:-3000}"
