@@ -3,18 +3,23 @@ set -euo pipefail
 
 # Next resolves env files relative to apps/web. Mirror the local root file into
 # the ignored app directory so monorepo development behaves like deployment.
+env_file=''
 if [ -f .env.local ]; then
   cp .env.local apps/web/.env.local
+  env_file='.env.local'
 elif [ -f .env ]; then
   cp .env apps/web/.env.local
+  env_file='.env'
+elif [ -f apps/web/.env.local ]; then
+  env_file='apps/web/.env.local'
 fi
 
 # Apply versioned local migrations before Next starts so a fresh checkout does
 # not fail when a new user preference or financial table is first accessed.
-if [ -f .env.local ]; then
+if [ -n "$env_file" ]; then
   set -a
   # shellcheck disable=SC1091
-  source .env.local
+  source "$env_file"
   set +a
   if [[ "${DATABASE_URL:-}" == *"localhost:5433"* ]]; then
     if ! command -v docker >/dev/null 2>&1; then
