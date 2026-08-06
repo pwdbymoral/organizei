@@ -1,23 +1,28 @@
 'use client';
 
 import { Bell, Check, Loader2 } from 'lucide-react';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useTheme } from 'next-themes';
 import { saveUserPreferences, type UserPreferences } from '../actions/preferences';
 import { ThemeToggle } from './theme-toggle';
 
 export function NotificationPreferences({ initial }: { initial: UserPreferences }) {
   const { theme, setTheme } = useTheme();
+  const appliedInitialTheme = useRef(false);
   useEffect(() => {
-    if (theme && theme !== initial.theme) setTheme(initial.theme);
+    if (!appliedInitialTheme.current && theme) {
+      appliedInitialTheme.current = true;
+      if (theme !== initial.theme) setTheme(initial.theme);
+    }
   }, [initial.theme, setTheme, theme]);
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
-  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(
-    typeof window !== 'undefined' && 'Notification' in window
-      ? Notification.permission
-      : 'unsupported',
+  const [permission, setPermission] = useState<NotificationPermission | 'unsupported' | 'unknown'>(
+    'unknown',
   );
+  useEffect(() => {
+    setPermission('Notification' in window ? Notification.permission : 'unsupported');
+  }, []);
 
   function requestPermission() {
     if (!('Notification' in window)) return setPermission('unsupported');
