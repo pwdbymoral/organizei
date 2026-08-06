@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@11.3.0",
+  "dependencies": {
+    "drizzle-orm": "0.45.2",
+    "web-push": "3.6.7"
+  },
   "engines": {
     "node": ">=24.0.0",
     "pnpm": ">=11.0.0"
@@ -32,6 +36,7 @@
     "admin:user:reset-password": "tsx packages/database/scripts/admin-user.ts reset-password",
     "admin:user:revoke-sessions": "tsx packages/database/scripts/admin-user.ts revoke-sessions",
     "admin:user:list": "tsx packages/database/scripts/admin-user.ts list",
+    "notifications:worker": "tsx scripts/notifications-worker.ts",
     "agents:sync": "tsx scripts/agents/sync.ts",
     "agents:check": "tsx scripts/agents/check.ts",
     "agents:list": "tsx scripts/agents/list.ts",
@@ -45,6 +50,7 @@
     "@playwright/test": "1.57.0",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
+    "@types/web-push": "3.6.4",
     "@types/node": "24.10.1",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",

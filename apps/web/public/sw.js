@@ -21,3 +21,35 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(fetch(request).catch(() => caches.match('/offline')));
   }
 });
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = {};
+  }
+  const title = typeof payload.title === 'string' ? payload.title : 'Organizei';
+  const body = typeof payload.body === 'string' ? payload.body : 'Você tem algo para revisar.';
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/icon.svg',
+      badge: '/icon.svg',
+      data: { url: typeof payload.url === 'string' ? payload.url : '/app' },
+    }),
+  );
+});
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = event.notification.data?.url || '/app';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      const existing = clients.find((client) => 'focus' in client);
+      if (existing) {
+        existing.navigate(target);
+        return existing.focus();
+      }
+      return self.clients.openWindow(target);
+    }),
+  );
+});

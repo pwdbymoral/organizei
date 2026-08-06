@@ -10,6 +10,9 @@ export type UserPreferences = {
   dailySummary: boolean;
   balanceAlerts: boolean;
   dueReminders: boolean;
+  registrationReminder: boolean;
+  registrationReminderTime: string;
+  timezone: string;
 };
 
 const defaults: UserPreferences = {
@@ -17,6 +20,9 @@ const defaults: UserPreferences = {
   dailySummary: true,
   balanceAlerts: true,
   dueReminders: true,
+  registrationReminder: true,
+  registrationReminderTime: '20:00',
+  timezone: 'America/Maceio',
 };
 
 export async function getUserPreferences(): Promise<UserPreferences> {
@@ -30,6 +36,9 @@ export async function getUserPreferences(): Promise<UserPreferences> {
     dailySummary: row.dailySummary,
     balanceAlerts: row.balanceAlerts,
     dueReminders: row.dueReminders,
+    registrationReminder: row.registrationReminder,
+    registrationReminderTime: row.registrationReminderTime,
+    timezone: row.timezone,
   };
 }
 
@@ -37,12 +46,19 @@ export async function saveUserPreferences(formData: FormData) {
   const user = await requireAuth();
   const theme = String(formData.get('theme') ?? 'system');
   if (!['system', 'light', 'dark'].includes(theme)) throw new Error('Tema inválido.');
+  const registrationReminderTime = String(formData.get('registrationReminderTime') ?? '20:00');
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(registrationReminderTime)) {
+    throw new Error('Horário do lembrete inválido.');
+  }
   const values = {
     userId: user.id,
     theme,
     dailySummary: formData.get('dailySummary') === 'on',
     balanceAlerts: formData.get('balanceAlerts') === 'on',
     dueReminders: formData.get('dueReminders') === 'on',
+    registrationReminder: formData.get('registrationReminder') === 'on',
+    registrationReminderTime,
+    timezone: String(formData.get('timezone') ?? 'America/Maceio'),
     updatedAt: new Date(),
   } as const;
   await db
@@ -55,6 +71,9 @@ export async function saveUserPreferences(formData: FormData) {
         dailySummary: values.dailySummary,
         balanceAlerts: values.balanceAlerts,
         dueReminders: values.dueReminders,
+        registrationReminder: values.registrationReminder,
+        registrationReminderTime: values.registrationReminderTime,
+        timezone: values.timezone,
         updatedAt: values.updatedAt,
       },
     });
