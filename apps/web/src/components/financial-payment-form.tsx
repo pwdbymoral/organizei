@@ -37,7 +37,7 @@ export function FinancialPaymentForm({
         name="amount"
         type="text"
         inputMode="decimal"
-        placeholder="R$"
+        placeholder="Valor pago"
         pattern="\d+([,.]\d{1,2})?"
         required
         className="border-border bg-background text-text min-h-11 w-24 rounded border px-2 text-sm"
@@ -47,8 +47,14 @@ export function FinancialPaymentForm({
         disabled={pending || remainingCents < 1}
         className="border-border bg-background text-text hover:bg-surface-elevated min-h-11 rounded border px-3 text-xs font-semibold disabled:opacity-60"
       >
-        {pending ? 'Registrando…' : 'Pagar'}
+        {pending ? 'Registrando…' : remainingCents < 1 ? 'Pago' : 'Registrar pagamento'}
       </button>
+      <span className="text-text-muted basis-full text-xs">
+        Restante:{' '}
+        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+          remainingCents / 100,
+        )}
+      </span>
       {state.message && (
         <p
           role={state.status === 'error' ? 'alert' : 'status'}

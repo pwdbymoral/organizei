@@ -6,7 +6,7 @@ const month = new Intl.DateTimeFormat('pt-BR', { month: 'short', timeZone: 'UTC'
 export function MonthlyProjectionChart({ data }: { data: MonthlyProjection[] }) {
   const max = Math.max(...data.map((item) => Math.abs(item.balanceCents)), 1);
   return (
-    <div>
+    <div className="relative">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {data.map((item) => {
           const negative = item.balanceCents < 0;
@@ -14,12 +14,17 @@ export function MonthlyProjectionChart({ data }: { data: MonthlyProjection[] }) 
           return (
             <div key={item.month} className="border-border bg-background rounded-2xl border p-3">
               <div
-                className="bg-surface-elevated flex h-20 items-end justify-center rounded-xl px-4 py-2"
+                className="bg-surface-elevated relative flex h-24 items-center justify-center overflow-hidden rounded-xl px-4 py-2"
                 aria-hidden="true"
               >
+                <div className="bg-border absolute inset-x-3 top-1/2 h-px" />
                 <div
-                  className={`w-full max-w-10 rounded-t-lg ${negative ? 'bg-danger' : 'bg-primary'}`}
-                  style={{ height: `${height}%` }}
+                  className={`absolute w-full max-w-10 rounded-lg ${negative ? 'bg-danger' : 'bg-primary'}`}
+                  style={
+                    negative
+                      ? { height: `${height / 2}%`, top: '50%' }
+                      : { height: `${height / 2}%`, bottom: '50%' }
+                  }
                 />
               </div>
               <p className="text-text-muted mt-3 text-xs font-medium capitalize">
@@ -43,6 +48,30 @@ export function MonthlyProjectionChart({ data }: { data: MonthlyProjection[] }) 
           <i className="bg-danger size-2.5 rounded-full" aria-hidden="true" /> saldo negativo
         </span>
       </div>
+      <table
+        className="absolute overflow-hidden whitespace-nowrap border-0 p-0 [clip:rect(0,0,0,0)]"
+        style={{ width: 1, height: 1, display: 'block' }}
+      >
+        <caption>Saldo estimado no fim de cada mês</caption>
+        <thead>
+          <tr>
+            <th>Mês</th>
+            <th>Saldo</th>
+            <th>Entradas</th>
+            <th>Saídas</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((item) => (
+            <tr key={item.month}>
+              <td>{month.format(new Date(`${item.month}-01T12:00:00Z`))}</td>
+              <td>{money.format(item.balanceCents / 100)}</td>
+              <td>{money.format(item.incomeCents / 100)}</td>
+              <td>{money.format(item.expenseCents / 100)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

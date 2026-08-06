@@ -15,12 +15,12 @@ export default async function MorePage() {
   return (
     <main className="bg-background text-text min-h-screen px-4 py-6 pb-28 sm:py-8">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
-        <AppNavigation />
         <AppPageHeader
-          title="Mais"
+          title="Configurações"
           description="Preferências para deixar o app do seu jeito e facilitar o uso no dia a dia."
           context="Configurações pessoais"
         />
+        <AppNavigation />
         <section className="border-border bg-surface rounded-3xl border p-5 sm:p-7">
           <NotificationPreferences initial={preferences} />
         </section>

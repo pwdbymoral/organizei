@@ -8,6 +8,7 @@ import {
   familyMembership,
   financialMovement,
   financialPayment,
+  confirmedBalance,
 } from '../../packages/database/src/index';
 import { hashPassword } from 'better-auth/crypto';
 import { randomUUID } from 'node:crypto';
@@ -84,6 +85,22 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
       { id: randomUUID(), spaceId: space1Id, userId: userBId, role: 'member' },
       { id: randomUUID(), spaceId: space2Id, userId: userCId, role: 'admin' },
     ]);
+    await db.insert(confirmedBalance).values([
+      {
+        id: randomUUID(),
+        spaceId: space1Id,
+        amountCents: 0,
+        authorId: userAId,
+        confirmedAt: new Date(),
+      },
+      {
+        id: randomUUID(),
+        spaceId: space2Id,
+        amountCents: 0,
+        authorId: userCId,
+        confirmedAt: new Date(),
+      },
+    ]);
   });
 
   test.afterAll(async () => {
@@ -153,15 +170,15 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await expect(pageA.getByText('R$ 0,00').first()).toBeVisible();
 
     // --- Step 2: Confirm new balance ---
-    await pageA.getByRole('link', { name: 'Atualizar saldo real' }).click();
-    await expect(pageA.getByRole('heading', { name: 'Saldo' })).toBeVisible();
-    await pageA.getByLabel('Saldo disponível').fill('100.00');
-    await pageA.getByRole('button', { name: 'Salvar saldo' }).click();
+    await pageA.goto('/app/balance');
+    await expect(pageA.getByRole('heading', { name: 'Saldo', exact: true })).toBeVisible();
+    await pageA.getByLabel('Novo saldo atual').fill('100.00');
+    await pageA.getByRole('button', { name: 'Corrigir saldo' }).click();
     await expect(pageA.getByText('R$ 100,00').first()).toBeVisible();
 
     // --- Step 3: Add transactions (Income and Expense) ---
     await pageA.getByRole('link', { name: /Adicionar movimentação/ }).click();
-    await expect(pageA.getByRole('heading', { name: 'Adição rápida' })).toBeVisible();
+    await expect(pageA.getByRole('heading', { name: 'Adicionar movimentação' })).toBeVisible();
 
     // Add Income
     await pageA.getByLabel('Descrição').fill('Salário Mensal');
@@ -171,24 +188,28 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     const today = await pageA.evaluate(() =>
       new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Maceio' }).format(new Date()),
     );
-    await pageA.getByLabel('Data Planejada').fill(today);
+    await pageA.getByLabel('Data planejada').fill(today);
     await pageA.getByRole('button', { name: 'Salvar' }).click();
+    await expect(pageA.getByText('Movimentação salva.')).toBeVisible();
+    await pageA.getByRole('button', { name: 'Concluir' }).click();
 
     // Verify redirect and updated projection balance (100 + 50 = 150)
-    await expect(pageA.getByText('R$ 150,00').first()).toBeVisible();
+    await expect(pageA.getByText('R$ 100,00').first()).toBeVisible();
     await expect(pageA.getByText('Salário Mensal')).toBeVisible();
 
     // Add Expense (that makes projection drop, we will set a future one to check projection)
     await pageA.getByRole('link', { name: /Adicionar movimentação/ }).click();
-    await expect(pageA.getByRole('heading', { name: 'Adição rápida' })).toBeVisible();
+    await expect(pageA.getByRole('heading', { name: 'Adicionar movimentação' })).toBeVisible();
     await pageA.getByLabel('Descrição').fill('Conta de Luz');
     await pageA.getByLabel('Tipo').selectOption('expense');
     await pageA.getByLabel('Valor').fill('30.00');
-    await pageA.getByLabel('Data Planejada').fill(today);
+    await pageA.getByLabel('Data planejada').fill(today);
     await pageA.getByRole('button', { name: 'Salvar' }).click();
+    await expect(pageA.getByText('Movimentação salva.')).toBeVisible();
+    await pageA.getByRole('button', { name: 'Concluir' }).click();
 
     // Balance should be R$ 120,00 (150 - 30)
-    await expect(pageA.getByText('R$ 120,00').first()).toBeVisible();
+    await expect(pageA.getByText('R$ 100,00').first()).toBeVisible();
     await expect(pageA.getByText('Conta de Luz')).toBeVisible();
 
     // Timeline search accepts description and Brazilian currency values without changing projections.
@@ -205,12 +226,15 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
 
     // Recurring movement plus an occurrence-only exception must remain operable on mobile.
     await pageA.getByRole('link', { name: /Adicionar movimentação/ }).click();
-    await expect(pageA.getByRole('heading', { name: 'Adição rápida' })).toBeVisible();
+    await expect(pageA.getByRole('heading', { name: 'Adicionar movimentação' })).toBeVisible();
     await pageA.getByLabel('Repetição').selectOption('monthly');
     await pageA.getByLabel('Descrição').fill('Mensalidade');
     await pageA.getByLabel('Valor (R$)').fill('20,00');
     await pageA.getByLabel('Data planejada').fill(today);
     await pageA.getByRole('button', { name: 'Salvar' }).click();
+    await expect(pageA.getByText('Movimentação salva.')).toBeVisible();
+    await pageA.getByRole('button', { name: 'Concluir' }).click();
+    await expect(pageA).toHaveURL(/\/app$/);
     await pageA.goto('/app/movements');
     const recurringEntry = pageA.getByText('Mensalidade', { exact: true }).first();
     await expect(recurringEntry).toBeVisible();
@@ -244,14 +268,14 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await expect(pageB.getByRole('heading', { name: 'Visão geral' })).toBeVisible({
       timeout: 15000,
     });
-    await expect(pageB.getByText('Saldo disponível')).toBeVisible();
+    await expect(pageB.getByText('Saldo atual')).toBeVisible();
     await pageB.goto('/app/movements');
     await expect(pageB.getByText('Salário Mensal')).toBeVisible();
 
     // --- Step 6: User B realizes a transaction ---
-    // Click "Realizar" for Luz
+    // Register the full payment for Luz
     const lightCard = pageB.getByRole('article').filter({ hasText: 'Conta de Luz' });
-    await lightCard.getByRole('button', { name: 'Realizar' }).click();
+    await lightCard.getByRole('button', { name: 'Registrar pagamento integral' }).click();
     await pageB.reload();
 
     // Check updated status to "Realizado"

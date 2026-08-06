@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { familyMembership } from '@organizei/database';
+import { confirmedBalance, familyMembership } from '@organizei/database';
+import { desc } from 'drizzle-orm';
 import { auth } from '../../../lib/auth';
 import { confirmBalance } from '../../../actions/financial';
 import { headers } from 'next/headers';
@@ -15,6 +16,10 @@ export default async function BalancePage() {
     where: eq(familyMembership.userId, session.user.id),
   });
   if (!membership) redirect('/app');
+  const latest = await db.query.confirmedBalance.findFirst({
+    where: eq(confirmedBalance.spaceId, membership.spaceId),
+    orderBy: desc(confirmedBalance.confirmedAt),
+  });
   async function save(formData: FormData) {
     'use server';
     const amount = Number(String(formData.get('amount')).replace(',', '.'));
@@ -23,24 +28,34 @@ export default async function BalancePage() {
     redirect('/app');
   }
   return (
-    <main className="bg-background text-text min-h-screen px-4 py-8">
+    <main className="bg-background text-text min-h-screen px-4 py-8 pb-28 sm:pb-10">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <AppNavigation />
         <div className="max-w-xl">
           <AppPageHeader
             title="Saldo"
-            description="Atualize o valor real disponível para recalibrar a previsão."
-            context="Ponto de partida"
+            description="Corrija a base do caixa quando o app e a realidade não coincidirem."
+            context="Conferência excepcional"
           />
           <section className="border-border bg-surface mt-5 rounded-3xl border p-6 sm:p-8">
-            <h2 className="text-xl font-semibold">Atualizar saldo real</h2>
+            <h2 className="text-xl font-semibold">Corrigir saldo atual</h2>
             <p className="text-text-muted mt-2">
-              Informe quanto existe hoje na conta. Isso recalibra a previsão sem alterar suas
-              movimentações.
+              Isso cria uma nova conferência e recalibra a previsão sem apagar suas movimentações.
             </p>
+            {latest && (
+              <p className="text-text-muted bg-background mt-3 rounded-xl p-3 text-sm">
+                Último valor informado:{' '}
+                <strong>
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                    latest.amountCents / 100,
+                  )}
+                </strong>
+                .
+              </p>
+            )}
             <form action={save} className="mt-8 grid gap-4">
               <label className="text-sm font-medium">
-                Saldo disponível
+                Novo saldo atual
                 <input
                   name="amount"
                   type="text"
@@ -51,7 +66,7 @@ export default async function BalancePage() {
                 />
               </label>
               <button className="bg-primary min-h-12 rounded-xl px-4 font-semibold text-white">
-                Salvar saldo
+                Corrigir saldo
               </button>
             </form>
           </section>

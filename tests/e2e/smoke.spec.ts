@@ -36,9 +36,19 @@ test('authentication, protected route, theme and logout @a11y @pwa', async ({ pa
   await page.getByLabel('E-mail').fill('ana@example.test');
   await page.getByLabel('Senha').fill('senha-sintetica-segura-123');
   await page.getByRole('button', { name: 'Entrar' }).click();
+  await expect(
+    page.getByRole('heading', { name: /Vamos começar pelo saldo|Visão geral/ }),
+  ).toBeVisible({
+    timeout: 15000,
+  });
+  const onboarding = page.getByRole('heading', { name: 'Vamos começar pelo saldo' });
+  if (await onboarding.isVisible().catch(() => false)) {
+    await page.getByRole('textbox', { name: 'Quanto existe hoje no caixa?' }).fill('0');
+    await page.getByRole('button', { name: 'Começar a organizar' }).click();
+  }
   await expect(page.getByRole('heading', { name: 'Visão geral' })).toBeVisible({ timeout: 15000 });
-  await page.getByRole('link', { name: 'Mais' }).first().click();
-  await expect(page.getByRole('heading', { name: 'Mais' })).toBeVisible();
+  await page.getByRole('link', { name: 'Configurações' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Configurações' })).toBeVisible();
   await page.setViewportSize({ width: 320, height: 800 });
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
