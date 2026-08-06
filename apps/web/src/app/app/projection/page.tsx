@@ -4,8 +4,6 @@ import { familyMembership } from '@organizei/database';
 import { auth } from '../../../lib/auth';
 import { getDashboardData } from '../../../lib/dashboard-data';
 import { ForecastChart } from '../../../components/forecast-chart';
-import { ThemeToggle } from '../../../components/theme-toggle';
-import { LogoutButton } from '../../../components/logout-button';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { AppNavigation } from '../../../components/app-navigation';
@@ -46,10 +44,7 @@ export default async function ProjectionPage({
               Veja o impacto das próximas movimentações antes que elas aconteçam.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <LogoutButton />
-          </div>
+          <span className="text-text-muted hidden text-sm sm:block">Planejamento financeiro</span>
         </header>
         <AppNavigation />
         <section className="border-border bg-surface rounded-3xl border p-5 sm:p-8">
@@ -84,13 +79,13 @@ export default async function ProjectionPage({
         </section>
         <section className="grid gap-4 sm:grid-cols-3">
           <article className="border-border bg-surface rounded-2xl border p-5">
-            <p className="text-text-muted text-sm">Menor saldo</p>
+            <p className="text-text-muted text-sm">Menor saldo previsto (30 dias)</p>
             <p className="mt-2 text-xl font-semibold">
               {fmtMoney(data.projection.lowestBalanceCents)}
             </p>
           </article>
           <article className="border-border bg-surface rounded-2xl border p-5">
-            <p className="text-text-muted text-sm">Primeiro dia negativo</p>
+            <p className="text-text-muted text-sm">Primeiro dia negativo (30 dias)</p>
             <p className="mt-2 text-xl font-semibold">
               {data.projection.firstNegativeDate
                 ? fmtDate(data.projection.firstNegativeDate)
@@ -100,15 +95,16 @@ export default async function ProjectionPage({
           <article className="border-border bg-surface rounded-2xl border p-5">
             <p className="text-text-muted text-sm">Saldo confirmado</p>
             <p className="mt-2 text-xl font-semibold">{fmtMoney(data.activeBalance.amountCents)}</p>
+            <p className="text-text-muted mt-1 text-xs">Último valor informado por vocês.</p>
           </article>
         </section>
         <section className="border-border bg-surface rounded-3xl border p-5 sm:p-8">
-          <h2 className="text-xl font-semibold">Visão mensal</h2>
+          <h2 className="text-xl font-semibold">Resumo dos próximos meses</h2>
           <p className="text-text-muted mt-1 text-sm">
-            Uma referência ampla para compromissos recorrentes e parcelas.
+            Saldo estimado no fim de cada mês, considerando o que já foi planejado.
           </p>
-          <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {data.monthlyProjection.map((item) => (
+          <div className="mt-5 grid gap-2 sm:grid-cols-3">
+            {data.monthlyProjection.slice(0, 3).map((item) => (
               <div
                 key={item.month}
                 className="border-border flex items-center justify-between rounded-xl border p-3"
@@ -124,6 +120,28 @@ export default async function ProjectionPage({
               </div>
             ))}
           </div>
+          <details className="border-border mt-4 rounded-xl border px-4 py-3">
+            <summary className="cursor-pointer text-sm font-medium">Ver os 12 meses</summary>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {data.monthlyProjection.slice(3).map((item) => (
+                <div
+                  key={item.month}
+                  className="border-border flex items-center justify-between rounded-xl border p-3"
+                >
+                  <span className="text-sm capitalize">
+                    {month.format(new Date(`${item.month}-01T12:00:00Z`))}
+                  </span>
+                  <span
+                    className={
+                      item.balanceCents < 0 ? 'text-danger font-semibold' : 'font-semibold'
+                    }
+                  >
+                    {fmtMoney(item.balanceCents)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </details>
         </section>
       </div>
     </main>

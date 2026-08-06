@@ -4,8 +4,6 @@ import { familyMembership } from '@organizei/database';
 import { auth } from '../../../lib/auth';
 import { getDashboardData } from '../../../lib/dashboard-data';
 import { parseTimelineFilters, matchesTimelineFilters } from '../../../lib/financial-filters';
-import { ThemeToggle } from '../../../components/theme-toggle';
-import { LogoutButton } from '../../../components/logout-button';
 import { StatusBadge, EmptyState } from '@organizei/ui';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -76,10 +74,7 @@ export default async function MovementsPage({
             <h1 className="mt-2 text-3xl font-semibold">Movimentações</h1>
             <p className="text-text-muted mt-1">Pesquise e revise tudo que influencia o caixa.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <LogoutButton />
-          </div>
+          <span className="text-text-muted hidden text-sm sm:block">Caixa da família</span>
         </header>
         <AppNavigation />
         <div className="flex items-center justify-between">

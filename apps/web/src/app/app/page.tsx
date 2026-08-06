@@ -522,10 +522,7 @@ function OverviewDashboard({ data }: { data: Awaited<ReturnType<typeof getDashbo
             <p className="text-text-muted text-sm">Visão da família</p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Organizei</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <LogoutButton />
-          </div>
+          <span className="text-text-muted hidden text-sm sm:block">Planejamento familiar</span>
         </header>
         <AppNavigation />
 
@@ -538,7 +535,9 @@ function OverviewDashboard({ data }: { data: Awaited<ReturnType<typeof getDashbo
             <div className="mt-6 flex flex-wrap gap-3 text-sm text-white/80">
               <span>Hoje, após o planejado: {formatMoney(todayBalanceCents)}</span>
               <span className="text-white/40">•</span>
-              <span>Menor saldo: {formatMoney(data.projection.lowestBalanceCents)}</span>
+              <span>
+                Menor saldo previsto (30 dias): {formatMoney(data.projection.lowestBalanceCents)}
+              </span>
             </div>
             {attention && (
               <p className="mt-4 rounded-xl bg-white/10 p-3 text-sm">
