@@ -1,5 +1,6 @@
 export type Direction = 'income' | 'expense';
 export type MovementStatus = 'pending' | 'realized' | 'canceled';
+export type RecurrenceCadence = 'weekly' | 'monthly';
 
 export interface FamilySpace {
   id: string;
@@ -54,6 +55,149 @@ export interface ProjectionResult {
   daily: DailyProjection[];
   lowestBalanceCents: number;
   firstNegativeDate: string | null;
+}
+
+export interface CashSummary {
+  currentBalanceCents: number;
+  balanceAsOf: string;
+  freeCashCents: number;
+  freeCashThrough: string;
+  nextIncomeDate: string | null;
+}
+
+export interface RecurrenceRuleVersion {
+  id: string;
+  seriesId: string;
+  version: number;
+  effectiveFrom: string;
+  effectiveUntil?: string | null;
+  maxOccurrences?: number | null;
+  description: string;
+  direction: Direction;
+  expectedAmountCents: number;
+  cadence: RecurrenceCadence;
+}
+
+export interface FinancialPayment {
+  id: string;
+  movementId: string;
+  amountCents: number;
+  paidDate: string;
+}
+
+function addSignedAmount(current: number, direction: Direction, amount: number) {
+  return direction === 'income' ? current + amount : current - amount;
+}
+
+/**
+ * Derives the current balance from the latest manual checkpoint without
+ * applying pending movements or counting cash events already included in it.
+ */
+export function calculateCurrentBalanceCents(
+  checkpoint: ConfirmedBalance,
+  currentCivilDate: string,
+  movements: FinancialMovement[],
+  payments: FinancialPayment[],
+): number {
+  const checkpointCivilDate = toCivilDate(checkpoint.confirmedAt);
+  const paymentsByMovement = new Map<string, FinancialPayment[]>();
+  for (const payment of payments) {
+    paymentsByMovement.set(payment.movementId, [
+      ...(paymentsByMovement.get(payment.movementId) ?? []),
+      payment,
+    ]);
+  }
+
+  let current = checkpoint.amountCents;
+  for (const movement of movements) {
+    if (movement.status === 'canceled') continue;
+    const movementPayments = paymentsByMovement.get(movement.id) ?? [];
+    if (movementPayments.length > 0) {
+      for (const payment of movementPayments) {
+        if (payment.paidDate > checkpointCivilDate && payment.paidDate <= currentCivilDate) {
+          current = addSignedAmount(current, movement.direction, payment.amountCents);
+        }
+      }
+      continue;
+    }
+    if (
+      movement.status === 'realized' &&
+      movement.realizedDate &&
+      movement.realizedDate > checkpointCivilDate &&
+      movement.realizedDate <= currentCivilDate
+    ) {
+      current = addSignedAmount(
+        current,
+        movement.direction,
+        movement.realizedAmountCents ?? movement.expectedAmountCents,
+      );
+    }
+  }
+  return current;
+}
+
+/**
+ * Calculates conservative cash available before the next known income. The
+ * next income itself is not spendable yet, so expenses on that day are
+ * included in the commitment total.
+ */
+export function calculateCashSummary(
+  checkpoint: ConfirmedBalance,
+  currentCivilDate: string,
+  movements: FinancialMovement[],
+  payments: FinancialPayment[],
+): CashSummary {
+  const currentBalanceCents = calculateCurrentBalanceCents(
+    checkpoint,
+    currentCivilDate,
+    movements,
+    payments,
+  );
+  const paymentsByMovement = new Map<string, FinancialPayment[]>();
+  for (const payment of payments) {
+    paymentsByMovement.set(payment.movementId, [
+      ...(paymentsByMovement.get(payment.movementId) ?? []),
+      payment,
+    ]);
+  }
+  const nextIncomeDate =
+    movements
+      .filter(
+        (movement) =>
+          movement.status === 'pending' &&
+          movement.direction === 'income' &&
+          movement.plannedDate >= currentCivilDate,
+      )
+      .map((movement) => movement.plannedDate)
+      .sort()[0] ?? null;
+  const fallback = new Date(`${currentCivilDate}T00:00:00Z`);
+  fallback.setUTCMonth(fallback.getUTCMonth() + 1, 0);
+  const freeCashThrough = nextIncomeDate ?? fallback.toISOString().slice(0, 10);
+
+  let committedExpenses = 0;
+  for (const movement of movements) {
+    if (movement.status !== 'pending' || movement.direction !== 'expense') continue;
+    const movementPayments = paymentsByMovement.get(movement.id) ?? [];
+    const remaining = remainingAmountCents(movement.expectedAmountCents, movementPayments);
+    if (movement.plannedDate <= freeCashThrough && remaining > 0) {
+      committedExpenses += remaining;
+    }
+  }
+
+  return {
+    currentBalanceCents,
+    balanceAsOf: currentCivilDate,
+    freeCashCents: currentBalanceCents - committedExpenses,
+    freeCashThrough,
+    nextIncomeDate,
+  };
+}
+
+export interface MonthlyProjection {
+  month: string;
+  balanceCents: number;
+  incomeCents: number;
+  expenseCents: number;
 }
 
 /**
@@ -171,4 +315,171 @@ export function calculateDailyProjection(
     lowestBalanceCents: lowestBalance,
     firstNegativeDate,
   };
+}
+
+/** Projects paid cash events separately from each occurrence's still-open balance. */
+export function calculateDailyProjectionWithPayments(
+  confirmedBalance: ConfirmedBalance,
+  currentCivilDate: string,
+  movements: FinancialMovement[],
+  payments: FinancialPayment[],
+  horizonDays: number,
+): ProjectionResult {
+  const paymentsByMovement = new Map<string, FinancialPayment[]>();
+  for (const payment of payments) {
+    paymentsByMovement.set(payment.movementId, [
+      ...(paymentsByMovement.get(payment.movementId) ?? []),
+      payment,
+    ]);
+  }
+  const events: FinancialMovement[] = [];
+  for (const movement of movements) {
+    if (movement.status === 'canceled') continue;
+    const movementPayments = paymentsByMovement.get(movement.id) ?? [];
+    if (movement.status === 'realized' && movementPayments.length === 0) {
+      events.push(movement);
+      continue;
+    }
+    const remaining = remainingAmountCents(movement.expectedAmountCents, movementPayments);
+    for (const payment of movementPayments) {
+      events.push({
+        ...movement,
+        id: payment.id,
+        expectedAmountCents: payment.amountCents,
+        plannedDate: payment.paidDate,
+        status: 'realized',
+        realizedAmountCents: payment.amountCents,
+        realizedDate: payment.paidDate,
+      });
+    }
+    if (movement.status === 'pending' && remaining > 0) {
+      events.push({
+        ...movement,
+        id: `${movement.id}:remaining`,
+        expectedAmountCents: remaining,
+        status: 'pending',
+        realizedAmountCents: null,
+        realizedDate: null,
+      });
+    }
+  }
+  return calculateDailyProjection(confirmedBalance, currentCivilDate, events, horizonDays);
+}
+
+function addCivilDays(date: string, days: number): string {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+function addCivilMonths(date: string, months: number): string {
+  const [year, month, day] = date.split('-').map(Number) as [number, number, number];
+  const monthStart = new Date(Date.UTC(year, month - 1 + months, 1));
+  const lastDay = new Date(
+    Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  return new Date(
+    Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth(), Math.min(day, lastDay)),
+  )
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** Generates dates without persisting them; callers materialize only their required horizon. */
+export function generateRecurrenceDates(rule: RecurrenceRuleVersion, horizonEnd: string): string[] {
+  if (
+    rule.maxOccurrences !== undefined &&
+    rule.maxOccurrences !== null &&
+    rule.maxOccurrences < 1
+  ) {
+    throw new Error('A recorrência deve ter ao menos uma ocorrência.');
+  }
+  const finalDate = [horizonEnd, rule.effectiveUntil].filter(Boolean).sort()[0]!;
+  const dates: string[] = [];
+  for (let sequence = 1; ; sequence += 1) {
+    if (rule.maxOccurrences && sequence > rule.maxOccurrences) break;
+    const current =
+      rule.cadence === 'weekly'
+        ? addCivilDays(rule.effectiveFrom, (sequence - 1) * 7)
+        : addCivilMonths(rule.effectiveFrom, sequence - 1);
+    if (current > finalDate) break;
+    dates.push(current);
+  }
+  return dates;
+}
+
+export function paymentTotalCents(payments: FinancialPayment[]): number {
+  return payments.reduce((total, payment) => total + payment.amountCents, 0);
+}
+
+export function remainingAmountCents(
+  expectedAmountCents: number,
+  payments: FinancialPayment[],
+): number {
+  const paid = paymentTotalCents(payments);
+  if (paid > expectedAmountCents)
+    throw new Error('Pagamentos não podem ultrapassar o valor previsto.');
+  return expectedAmountCents - paid;
+}
+
+export function calculateMonthlyProjection(
+  confirmedBalance: ConfirmedBalance,
+  currentCivilDate: string,
+  movements: FinancialMovement[],
+  months: number = 12,
+): MonthlyProjection[] {
+  const horizonDays = Math.max(1, months * 31);
+  const daily = calculateDailyProjection(
+    confirmedBalance,
+    currentCivilDate,
+    movements,
+    horizonDays,
+  ).daily;
+  const grouped = new Map<string, MonthlyProjection>();
+  for (const day of daily) {
+    const month = day.date.slice(0, 7);
+    const current = grouped.get(month) ?? {
+      month,
+      balanceCents: day.balanceCents,
+      incomeCents: 0,
+      expenseCents: 0,
+    };
+    current.balanceCents = day.balanceCents;
+    current.incomeCents += day.incomeCents;
+    current.expenseCents += day.expenseCents;
+    grouped.set(month, current);
+  }
+  return [...grouped.values()].slice(0, months);
+}
+
+export function calculateMonthlyProjectionWithPayments(
+  confirmedBalance: ConfirmedBalance,
+  currentCivilDate: string,
+  movements: FinancialMovement[],
+  payments: FinancialPayment[],
+  months: number = 12,
+): MonthlyProjection[] {
+  const horizonDays = Math.max(1, months * 31);
+  const daily = calculateDailyProjectionWithPayments(
+    confirmedBalance,
+    currentCivilDate,
+    movements,
+    payments,
+    horizonDays,
+  ).daily;
+  const grouped = new Map<string, MonthlyProjection>();
+  for (const day of daily) {
+    const month = day.date.slice(0, 7);
+    const value = grouped.get(month) ?? {
+      month,
+      balanceCents: day.balanceCents,
+      incomeCents: 0,
+      expenseCents: 0,
+    };
+    value.balanceCents = day.balanceCents;
+    value.incomeCents += day.incomeCents;
+    value.expenseCents += day.expenseCents;
+    grouped.set(month, value);
+  }
+  return [...grouped.values()].slice(0, months);
 }

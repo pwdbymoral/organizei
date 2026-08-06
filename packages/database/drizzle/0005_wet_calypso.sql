@@ -1,0 +1,1 @@
+ALTER TABLE "financial_movements" ADD CONSTRAINT "financial_movements_recurrence_rule_version_id_fk" FOREIGN KEY ("recurrence_rule_version_id") REFERENCES "public"."recurrence_rule_versions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

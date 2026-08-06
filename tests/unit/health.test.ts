@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { healthResponse } from '../../apps/web/src/app/api/health/route';
+import { healthResponse } from '../../apps/web/src/lib/health';
 
 describe('health endpoint', () => {
   it('returns readiness only when PostgreSQL responds', async () => {

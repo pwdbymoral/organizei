@@ -2,11 +2,18 @@
 
 import { auth } from '../lib/auth';
 import { headers } from 'next/headers';
+import { revalidatePath } from 'next/cache';
 import {
   type MovementInput,
   type MovementUpdate,
+  type RecurrenceInput,
   confirmBalanceCore,
   createMovementCore,
+  createRecurrenceCore,
+  materializeRecurrenceCore,
+  materializeSpaceRecurrencesCore,
+  recordPaymentCore,
+  splitRecurrenceFromHereCore,
   updateMovementCore,
 } from '../lib/financial-core';
 
@@ -36,4 +43,193 @@ export async function updateMovement(
 ) {
   const user = await requireAuth();
   return updateMovementCore(spaceId, movementId, data, version, user.id);
+}
+
+export async function createRecurrence(spaceId: string, data: RecurrenceInput) {
+  const user = await requireAuth();
+  return createRecurrenceCore(spaceId, data, user.id);
+}
+
+export async function materializeRecurrence(spaceId: string, ruleId: string, horizonEnd: string) {
+  const user = await requireAuth();
+  return materializeRecurrenceCore(spaceId, ruleId, horizonEnd, user.id);
+}
+
+export async function ensureRecurrenceHorizon(spaceId: string, horizonEnd: string) {
+  const user = await requireAuth();
+  return materializeSpaceRecurrencesCore(spaceId, horizonEnd, user.id);
+}
+
+export async function recordPayment(
+  spaceId: string,
+  movementId: string,
+  amountCents: number,
+  paidDate: string,
+  version: number,
+) {
+  const user = await requireAuth();
+  return recordPaymentCore(spaceId, movementId, amountCents, paidDate, version, user.id);
+}
+
+export async function splitRecurrenceFromHere(
+  spaceId: string,
+  ruleId: string,
+  effectiveFrom: string,
+  changes: Parameters<typeof splitRecurrenceFromHereCore>[3],
+) {
+  const user = await requireAuth();
+  return splitRecurrenceFromHereCore(spaceId, ruleId, effectiveFrom, changes, user.id);
+}
+
+export type FinancialFormState = { status: 'idle' | 'success' | 'error'; message: string };
+
+function userFacingError(error: unknown): FinancialFormState {
+  const message = error instanceof Error ? error.message : 'Não foi possível concluir a ação.';
+  const safeMessages = [
+    'Conflict',
+    'Movimentação já finalizada.',
+    'Pagamento excede o saldo restante.',
+    'Não é possível cancelar uma movimentação com pagamentos.',
+    'Data do pagamento não pode ser futura.',
+    'Descrição inválida.',
+    'Valor previsto deve ser um valor positivo em centavos.',
+  ];
+  return {
+    status: 'error',
+    message: safeMessages.includes(message)
+      ? message === 'Conflict'
+        ? 'Esta movimentação foi alterada por outra pessoa. Atualize a página e tente novamente.'
+        : message
+      : 'Não foi possível concluir a ação. Revise os dados e tente novamente.',
+  };
+}
+
+function readMoneyCents(value: FormDataEntryValue | null) {
+  const normalized = String(value ?? '')
+    .trim()
+    .replace(',', '.');
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) throw new Error('Informe um valor válido.');
+  const cents = Math.round(Number(normalized) * 100);
+  if (!Number.isSafeInteger(cents) || cents < 1)
+    throw new Error('Informe um valor maior que zero.');
+  return cents;
+}
+
+export async function updateOccurrenceFormAction(
+  _previous: FinancialFormState,
+  formData: FormData,
+): Promise<FinancialFormState> {
+  try {
+    await updateMovement(
+      String(formData.get('spaceId')),
+      String(formData.get('movementId')),
+      {
+        description: String(formData.get('description')),
+        direction: String(formData.get('direction')) as MovementInput['direction'],
+        expectedAmountCents: readMoneyCents(formData.get('amount')),
+        plannedDate: String(formData.get('plannedDate')),
+      },
+      Number(formData.get('version')),
+    );
+    revalidatePath('/app');
+    return { status: 'success', message: 'Ocorrência atualizada.' };
+  } catch (error) {
+    return userFacingError(error);
+  }
+}
+
+export async function splitRecurrenceFormAction(
+  _previous: FinancialFormState,
+  formData: FormData,
+): Promise<FinancialFormState> {
+  try {
+    const effectiveFrom = String(formData.get('effectiveFrom'));
+    const endDate = String(formData.get('effectiveUntil') ?? '').trim();
+    const count = String(formData.get('maxOccurrences') ?? '').trim();
+    const cadence = String(formData.get('cadence') ?? '');
+    const rule = await splitRecurrenceFromHere(
+      String(formData.get('spaceId')),
+      String(formData.get('ruleId')),
+      effectiveFrom,
+      {
+        description: String(formData.get('description')),
+        direction: String(formData.get('direction')) as MovementInput['direction'],
+        expectedAmountCents: readMoneyCents(formData.get('amount')),
+        ...(cadence === 'weekly' || cadence === 'monthly'
+          ? { cadence: cadence as RecurrenceInput['cadence'] }
+          : {}),
+        effectiveUntil: endDate || null,
+        maxOccurrences: count ? Number.parseInt(count, 10) : null,
+      },
+    );
+    const horizon = new Date(`${effectiveFrom}T00:00:00Z`);
+    horizon.setUTCFullYear(horizon.getUTCFullYear() + 1);
+    await materializeRecurrence(
+      String(formData.get('spaceId')),
+      rule.id,
+      horizon.toISOString().slice(0, 10),
+    );
+    revalidatePath('/app');
+    return { status: 'success', message: 'Próximas ocorrências atualizadas.' };
+  } catch (error) {
+    return userFacingError(error);
+  }
+}
+
+export async function recordPaymentFormAction(
+  _previous: FinancialFormState,
+  formData: FormData,
+): Promise<FinancialFormState> {
+  try {
+    await recordPayment(
+      String(formData.get('spaceId')),
+      String(formData.get('movementId')),
+      readMoneyCents(formData.get('amount')),
+      String(formData.get('paidDate')),
+      Number(formData.get('version')),
+    );
+    revalidatePath('/app');
+    return { status: 'success', message: 'Pagamento registrado.' };
+  } catch (error) {
+    return userFacingError(error);
+  }
+}
+
+export async function createFinancialMovementFormAction(
+  _previous: FinancialFormState,
+  formData: FormData,
+): Promise<FinancialFormState> {
+  try {
+    const spaceId = String(formData.get('spaceId'));
+    const cadence = String(formData.get('cadence'));
+    const plannedDate = String(formData.get('plannedDate'));
+    const movement: MovementInput = {
+      description: String(formData.get('description')),
+      direction: String(formData.get('direction')) as MovementInput['direction'],
+      expectedAmountCents: readMoneyCents(formData.get('amount')),
+      plannedDate,
+    };
+    if (cadence === 'once') {
+      await createMovement(spaceId, movement);
+    } else if (cadence === 'weekly' || cadence === 'monthly') {
+      const endDate = String(formData.get('effectiveUntil') ?? '').trim();
+      const count = String(formData.get('maxOccurrences') ?? '').trim();
+      const rule = await createRecurrence(spaceId, {
+        ...movement,
+        cadence,
+        effectiveFrom: plannedDate,
+        effectiveUntil: endDate || null,
+        maxOccurrences: count ? Number.parseInt(count, 10) : null,
+      });
+      const horizon = new Date(`${plannedDate}T00:00:00Z`);
+      horizon.setUTCFullYear(horizon.getUTCFullYear() + 1);
+      await materializeRecurrence(spaceId, rule.id, horizon.toISOString().slice(0, 10));
+    } else {
+      throw new Error('Repetição inválida.');
+    }
+    revalidatePath('/app');
+    return { status: 'success', message: 'Movimentação salva.' };
+  } catch (error) {
+    return userFacingError(error);
+  }
 }

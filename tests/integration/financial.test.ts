@@ -16,6 +16,10 @@ let familyMembership: typeof import('../../packages/database/src/index').familyM
 let confirmBalanceCore: typeof import('../../apps/web/src/lib/financial-core').confirmBalanceCore;
 let createMovementCore: typeof import('../../apps/web/src/lib/financial-core').createMovementCore;
 let updateMovementCore: typeof import('../../apps/web/src/lib/financial-core').updateMovementCore;
+let createRecurrenceCore: typeof import('../../apps/web/src/lib/financial-core').createRecurrenceCore;
+let materializeRecurrenceCore: typeof import('../../apps/web/src/lib/financial-core').materializeRecurrenceCore;
+let recordPaymentCore: typeof import('../../apps/web/src/lib/financial-core').recordPaymentCore;
+let splitRecurrenceFromHereCore: typeof import('../../apps/web/src/lib/financial-core').splitRecurrenceFromHereCore;
 
 describe('Financial Domain Integration', () => {
   let userA: string;
@@ -52,6 +56,10 @@ describe('Financial Domain Integration', () => {
     confirmBalanceCore = actionsModule.confirmBalanceCore;
     createMovementCore = actionsModule.createMovementCore;
     updateMovementCore = actionsModule.updateMovementCore;
+    createRecurrenceCore = actionsModule.createRecurrenceCore;
+    materializeRecurrenceCore = actionsModule.materializeRecurrenceCore;
+    recordPaymentCore = actionsModule.recordPaymentCore;
+    splitRecurrenceFromHereCore = actionsModule.splitRecurrenceFromHereCore;
 
     await execFileAsync('pnpm', ['db:migrate'], {
       cwd: process.cwd(),
@@ -185,5 +193,92 @@ describe('Financial Domain Integration', () => {
     expect(
       auditRows.filter((row) => row.movementId === created.id).map((row) => row.action),
     ).toEqual(['financial_movement.create', 'financial_movement.update']);
+  });
+
+  it('materializes an idempotent recurring series and records partial payments', async () => {
+    const rule = await createRecurrenceCore(
+      space1,
+      {
+        description: 'Assinatura',
+        direction: 'expense',
+        expectedAmountCents: 1_000,
+        plannedDate: '2025-01-01',
+        cadence: 'monthly',
+        effectiveFrom: '2025-01-01',
+        maxOccurrences: 2,
+      },
+      userA,
+    );
+    await materializeRecurrenceCore(space1, rule.id, '2025-03-31', userA);
+    await materializeRecurrenceCore(space1, rule.id, '2025-03-31', userA);
+    const { financialMovement } = await import('../../packages/database/src/index');
+    const movements = await db.select().from(financialMovement);
+    const occurrence = movements.find((movement) => movement.recurrenceRuleVersionId === rule.id)!;
+    expect(
+      movements.filter((movement) => movement.recurrenceRuleVersionId === rule.id),
+    ).toHaveLength(2);
+    const partial = await recordPaymentCore(
+      space1,
+      occurrence.id,
+      400,
+      '2025-01-01',
+      occurrence.version,
+      userA,
+    );
+    expect(partial.status).toBe('pending');
+    const realized = await recordPaymentCore(
+      space1,
+      occurrence.id,
+      600,
+      '2025-01-02',
+      partial.version,
+      userB,
+    );
+    expect(realized.status).toBe('realized');
+    await expect(
+      recordPaymentCore(space1, occurrence.id, 1, '2025-01-03', realized.version, userA),
+    ).rejects.toThrow();
+  });
+
+  it('versions a recurrence without changing prior pending history or its remaining installment limit', async () => {
+    const rule = await createRecurrenceCore(
+      space1,
+      {
+        description: 'Academia',
+        direction: 'expense',
+        expectedAmountCents: 100,
+        plannedDate: '2025-01-01',
+        cadence: 'monthly',
+        effectiveFrom: '2025-01-01',
+        maxOccurrences: 3,
+      },
+      userA,
+    );
+    await materializeRecurrenceCore(space1, rule.id, '2025-03-31', userA);
+    const next = await splitRecurrenceFromHereCore(
+      space1,
+      rule.id,
+      '2025-02-01',
+      {
+        description: 'Academia',
+        direction: 'expense',
+        expectedAmountCents: 120,
+        cadence: 'monthly',
+      },
+      userA,
+    );
+    expect(next.version).toBe(2);
+    expect(next.effectiveFrom).toBe('2025-02-01');
+    expect(next.maxOccurrences).toBe(2);
+    const { financialMovement } = await import('../../packages/database/src/index');
+    const original = (await db.select().from(financialMovement)).filter(
+      (movement) => movement.recurrenceRuleVersionId === rule.id,
+    );
+    expect(original.find((movement) => movement.plannedDate === '2025-01-01')?.status).toBe(
+      'pending',
+    );
+    expect(original.find((movement) => movement.plannedDate === '2025-02-01')?.status).toBe(
+      'canceled',
+    );
   });
 });

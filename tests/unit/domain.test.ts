@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { calculateDailyProjection, ConfirmedBalance } from '../../packages/domain/src/index';
+import {
+  calculateDailyProjection,
+  calculateDailyProjectionWithPayments,
+  calculateCashSummary,
+  calculateCurrentBalanceCents,
+  calculateMonthlyProjection,
+  generateRecurrenceDates,
+  remainingAmountCents,
+  type ConfirmedBalance,
+} from '../../packages/domain/src/index';
 
 const toDateString = (d: Date) => {
   if (isNaN(d.getTime())) return '2025-01-01';
@@ -35,6 +44,205 @@ const validMovementArb = fc.record({
 });
 
 describe('DailyProjectionEngine invariants', () => {
+  it('generates weekly and month-end recurrence dates within limits', () => {
+    const weekly = generateRecurrenceDates(
+      {
+        id: 'weekly',
+        seriesId: 'series',
+        version: 1,
+        effectiveFrom: '2025-01-01',
+        maxOccurrences: 3,
+        description: 'Semanal',
+        direction: 'expense',
+        expectedAmountCents: 100,
+        cadence: 'weekly',
+      },
+      '2025-02-01',
+    );
+    expect(weekly).toEqual(['2025-01-01', '2025-01-08', '2025-01-15']);
+    expect(
+      generateRecurrenceDates(
+        {
+          id: 'monthly',
+          seriesId: 'series',
+          version: 1,
+          effectiveFrom: '2025-01-31',
+          description: 'Mensal',
+          direction: 'expense',
+          expectedAmountCents: 100,
+          cadence: 'monthly',
+        },
+        '2025-04-30',
+      ),
+    ).toEqual(['2025-01-31', '2025-02-28', '2025-03-31', '2025-04-30']);
+  });
+
+  it('derives remaining partial-payment balance and rejects overpayment', () => {
+    expect(
+      remainingAmountCents(1_000, [
+        { id: 'p1', movementId: 'm1', amountCents: 400, paidDate: '2025-01-01' },
+      ]),
+    ).toBe(600);
+    expect(() =>
+      remainingAmountCents(1_000, [
+        { id: 'p1', movementId: 'm1', amountCents: 1_001, paidDate: '2025-01-01' },
+      ]),
+    ).toThrow();
+  });
+
+  it('derives current balance from cash events after the latest checkpoint exactly once', () => {
+    const checkpoint: ConfirmedBalance = {
+      spaceId: 'space-1',
+      amountCents: 10_000,
+      confirmedAt: new Date('2025-01-10T15:00:00Z'),
+      authorId: 'user-1',
+      createdAt: new Date('2025-01-10T15:00:00Z'),
+    };
+    const movements = [
+      {
+        id: 'before-checkpoint',
+        spaceId: 'space-1',
+        description: 'Já incluído',
+        direction: 'expense' as const,
+        expectedAmountCents: 500,
+        plannedDate: '2025-01-09',
+        status: 'realized' as const,
+        realizedAmountCents: 500,
+        realizedDate: '2025-01-10',
+        createdBy: 'user-1',
+        updatedBy: 'user-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        version: 1,
+      },
+      {
+        id: 'after-checkpoint',
+        spaceId: 'space-1',
+        description: 'Pago depois',
+        direction: 'expense' as const,
+        expectedAmountCents: 1_000,
+        plannedDate: '2025-01-12',
+        status: 'pending' as const,
+        realizedAmountCents: null,
+        realizedDate: null,
+        createdBy: 'user-1',
+        updatedBy: 'user-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        version: 1,
+      },
+    ];
+    expect(
+      calculateCurrentBalanceCents(checkpoint, '2025-01-13', movements, [
+        {
+          id: 'payment-1',
+          movementId: 'after-checkpoint',
+          amountCents: 400,
+          paidDate: '2025-01-12',
+        },
+      ]),
+    ).toBe(9_600);
+  });
+
+  it('calculates conservative free cash through the next income and falls back to month end', () => {
+    const checkpoint: ConfirmedBalance = {
+      spaceId: 'space-1',
+      amountCents: 10_000,
+      confirmedAt: new Date('2025-01-01T12:00:00Z'),
+      authorId: 'user-1',
+      createdAt: new Date('2025-01-01T12:00:00Z'),
+    };
+    const base = {
+      spaceId: 'space-1',
+      createdBy: 'user-1',
+      updatedBy: 'user-1',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      version: 1,
+    };
+    const summary = calculateCashSummary(
+      checkpoint,
+      '2025-01-05',
+      [
+        {
+          ...base,
+          id: 'rent',
+          description: 'Aluguel',
+          direction: 'expense' as const,
+          expectedAmountCents: 2_000,
+          plannedDate: '2025-01-08',
+          status: 'pending' as const,
+        },
+        {
+          ...base,
+          id: 'income',
+          description: 'Recebimento',
+          direction: 'income' as const,
+          expectedAmountCents: 5_000,
+          plannedDate: '2025-01-10',
+          status: 'pending' as const,
+        },
+      ],
+      [],
+    );
+    expect(summary).toMatchObject({
+      currentBalanceCents: 10_000,
+      freeCashCents: 8_000,
+      freeCashThrough: '2025-01-10',
+      nextIncomeDate: '2025-01-10',
+    });
+  });
+
+  it('does not project a realized movement as a pending balance', () => {
+    const result = calculateDailyProjectionWithPayments(
+      {
+        spaceId: 'space-1',
+        amountCents: 1_000,
+        confirmedAt: new Date('2025-01-01T00:00:00Z'),
+        authorId: 'user-1',
+        createdAt: new Date('2025-01-01T00:00:00Z'),
+      },
+      '2025-01-01',
+      [
+        {
+          id: 'realized',
+          spaceId: 'space-1',
+          description: 'Conta paga',
+          direction: 'expense',
+          expectedAmountCents: 400,
+          plannedDate: '2025-01-02',
+          status: 'realized',
+          realizedAmountCents: 400,
+          realizedDate: '2025-01-02',
+          createdBy: 'user-1',
+          updatedBy: 'user-1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          version: 1,
+        },
+      ],
+      [],
+      3,
+    );
+    expect(result.daily.map((day) => day.balanceCents)).toEqual([1_000, 600, 600]);
+  });
+
+  it('aggregates a twelve-month view from daily projection', () => {
+    const result = calculateMonthlyProjection(
+      {
+        spaceId: 's1',
+        amountCents: 1_000,
+        confirmedAt: new Date('2025-01-01T00:00:00Z'),
+        authorId: 'a1',
+        createdAt: new Date(),
+      },
+      '2025-01-01',
+      [],
+      12,
+    );
+    expect(result).toHaveLength(12);
+    expect(result[0]).toMatchObject({ month: '2025-01', balanceCents: 1_000 });
+  });
   it('applies overdue pending movements today and avoids duplicating realizations in a checkpoint', () => {
     const balance: ConfirmedBalance = {
       spaceId: 'space-1',
