@@ -245,6 +245,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
       timeout: 15000,
     });
     await expect(pageB.getByText('Saldo disponível')).toBeVisible();
+    await pageB.goto('/app/movements');
     await expect(pageB.getByText('Salário Mensal')).toBeVisible();
 
     // --- Step 6: User B realizes a transaction ---
