@@ -12,6 +12,7 @@ import { revalidatePath } from 'next/cache';
 import { FinancialMovementDialogs } from '../../../components/financial-movement-dialogs';
 import { FinancialPaymentForm } from '../../../components/financial-payment-form';
 import { AppNavigation } from '../../../components/app-navigation';
+import { AppPageHeader } from '../../../components/app-page-header';
 
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const date = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
@@ -66,16 +67,11 @@ export default async function MovementsPage({
   return (
     <main className="bg-background text-text min-h-screen">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-5 sm:px-8 sm:py-8">
-        <header className="flex items-center justify-between">
-          <div>
-            <Link href="/app" className="text-primary text-sm">
-              ← Visão geral
-            </Link>
-            <h1 className="mt-2 text-3xl font-semibold">Movimentações</h1>
-            <p className="text-text-muted mt-1">Pesquise e revise tudo que influencia o caixa.</p>
-          </div>
-          <span className="text-text-muted hidden text-sm sm:block">Caixa da família</span>
-        </header>
+        <AppPageHeader
+          title="Movimentações"
+          description="Pesquise e revise tudo que influencia o caixa."
+          context="Organização do caixa"
+        />
         <AppNavigation />
         <div className="flex items-center justify-between">
           <span className="text-text-muted text-sm">{movements.length} resultado(s)</span>

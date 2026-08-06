@@ -7,10 +7,11 @@ import { ForecastChart } from '../../../components/forecast-chart';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { AppNavigation } from '../../../components/app-navigation';
+import { AppPageHeader } from '../../../components/app-page-header';
+import { MonthlyProjectionChart } from '../../../components/monthly-projection-chart';
 
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const date = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
-const month = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 const fmtMoney = (cents: number) => money.format(cents / 100);
 const fmtDate = (value: string) => date.format(new Date(`${value}T12:00:00Z`));
 
@@ -34,18 +35,11 @@ export default async function ProjectionPage({
   return (
     <main className="bg-background text-text min-h-screen">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-8 sm:py-8">
-        <header className="flex items-center justify-between">
-          <div>
-            <Link href="/app" className="text-primary text-sm">
-              ← Visão geral
-            </Link>
-            <h1 className="mt-2 text-3xl font-semibold">Previsão do saldo</h1>
-            <p className="text-text-muted mt-1">
-              Veja o impacto das próximas movimentações antes que elas aconteçam.
-            </p>
-          </div>
-          <span className="text-text-muted hidden text-sm sm:block">Planejamento financeiro</span>
-        </header>
+        <AppPageHeader
+          title="Planejamento"
+          description="Veja o impacto das próximas movimentações antes que elas aconteçam."
+          context="Previsão do caixa"
+        />
         <AppNavigation />
         <section className="border-border bg-surface rounded-3xl border p-5 sm:p-8">
           <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
@@ -99,49 +93,14 @@ export default async function ProjectionPage({
           </article>
         </section>
         <section className="border-border bg-surface rounded-3xl border p-5 sm:p-8">
-          <h2 className="text-xl font-semibold">Resumo dos próximos meses</h2>
+          <h2 className="text-xl font-semibold">Próximos meses</h2>
           <p className="text-text-muted mt-1 text-sm">
-            Saldo estimado no fim de cada mês, considerando o que já foi planejado.
+            Uma visão rápida do saldo estimado no fim de cada mês. Quanto maior a barra, maior o
+            saldo.
           </p>
-          <div className="mt-5 grid gap-2 sm:grid-cols-3">
-            {data.monthlyProjection.slice(0, 3).map((item) => (
-              <div
-                key={item.month}
-                className="border-border flex items-center justify-between rounded-xl border p-3"
-              >
-                <span className="text-sm capitalize">
-                  {month.format(new Date(`${item.month}-01T12:00:00Z`))}
-                </span>
-                <span
-                  className={item.balanceCents < 0 ? 'text-danger font-semibold' : 'font-semibold'}
-                >
-                  {fmtMoney(item.balanceCents)}
-                </span>
-              </div>
-            ))}
+          <div className="mt-5">
+            <MonthlyProjectionChart data={data.monthlyProjection} />
           </div>
-          <details className="border-border mt-4 rounded-xl border px-4 py-3">
-            <summary className="cursor-pointer text-sm font-medium">Ver os 12 meses</summary>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {data.monthlyProjection.slice(3).map((item) => (
-                <div
-                  key={item.month}
-                  className="border-border flex items-center justify-between rounded-xl border p-3"
-                >
-                  <span className="text-sm capitalize">
-                    {month.format(new Date(`${item.month}-01T12:00:00Z`))}
-                  </span>
-                  <span
-                    className={
-                      item.balanceCents < 0 ? 'text-danger font-semibold' : 'font-semibold'
-                    }
-                  >
-                    {fmtMoney(item.balanceCents)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </details>
         </section>
       </div>
     </main>

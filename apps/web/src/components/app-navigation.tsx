@@ -2,8 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChartNoAxesCombined, Home, List, Plus } from 'lucide-react';
-import { MoreMenu } from './more-menu';
+import { ChartNoAxesCombined, Home, List, MoreHorizontal, Plus } from 'lucide-react';
 
 const items = [
   { href: '/app', label: 'Início', Icon: Home },
@@ -11,12 +10,14 @@ const items = [
   { href: '/app/projection', label: 'Planejamento', Icon: ChartNoAxesCombined },
 ];
 
+const moreItem = { href: '/app/more', label: 'Mais', Icon: MoreHorizontal };
+
 export function AppNavigation() {
   const pathname = usePathname();
   return (
     <nav
       aria-label="Navegação principal"
-      className="border-border bg-surface rounded-2xl border p-1 sm:flex sm:items-center sm:justify-between"
+      className="sm:border-border sm:bg-surface sm:flex sm:items-center sm:justify-between sm:rounded-2xl sm:border sm:p-1"
     >
       <div className="hidden items-center gap-1 sm:flex">
         {items.map(({ href, label, Icon }) => {
@@ -34,7 +35,14 @@ export function AppNavigation() {
           );
         })}
       </div>
-      <MoreMenu />
+      <Link
+        href={moreItem.href}
+        aria-current={pathname.startsWith(moreItem.href) ? 'page' : undefined}
+        className={`hidden items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors sm:flex ${pathname.startsWith(moreItem.href) ? 'bg-primary text-white' : 'text-text-muted hover:bg-surface-elevated hover:text-text'}`}
+      >
+        <moreItem.Icon aria-hidden="true" className="size-4" />
+        {moreItem.label}
+      </Link>
       <Link
         href="/add"
         aria-label="Adicionar movimentação"
@@ -57,7 +65,14 @@ export function AppNavigation() {
             </Link>
           );
         })}
-        <MoreMenu />
+        <Link
+          href={moreItem.href}
+          aria-current={pathname.startsWith(moreItem.href) ? 'page' : undefined}
+          className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] ${pathname.startsWith(moreItem.href) ? 'bg-primary text-white' : 'text-text-muted'}`}
+        >
+          <moreItem.Icon aria-hidden="true" className="size-4" />
+          {moreItem.label}
+        </Link>
       </div>
     </nav>
   );

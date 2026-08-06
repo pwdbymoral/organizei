@@ -17,6 +17,7 @@ import { matchesTimelineFilters, parseTimelineFilters } from '../../lib/financia
 import { EmptyState, StatusBadge } from '@organizei/ui';
 import { ForecastChart } from '../../components/forecast-chart';
 import { AppNavigation } from '../../components/app-navigation';
+import { AppPageHeader } from '../../components/app-page-header';
 
 const moneyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
@@ -517,13 +518,11 @@ function OverviewDashboard({ data }: { data: Awaited<ReturnType<typeof getDashbo
   return (
     <main className="bg-background text-text min-h-screen">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-5 sm:px-8 sm:py-8">
-        <header className="flex items-center justify-between">
-          <div>
-            <p className="text-text-muted text-sm">Visão da família</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Organizei</h1>
-          </div>
-          <span className="text-text-muted hidden text-sm sm:block">Planejamento familiar</span>
-        </header>
+        <AppPageHeader
+          title="Visão geral"
+          description="Seu saldo, os próximos movimentos e os atalhos mais usados."
+          context="Planejamento familiar"
+        />
         <AppNavigation />
 
         <section className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">

@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { eq } from 'drizzle-orm';
 import { familyMembership } from '@organizei/database';
 import { auth } from '../../../lib/auth';
@@ -6,6 +5,7 @@ import { confirmBalance } from '../../../actions/financial';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { AppNavigation } from '../../../components/app-navigation';
+import { AppPageHeader } from '../../../components/app-page-header';
 
 export default async function BalancePage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -27,12 +27,13 @@ export default async function BalancePage() {
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <AppNavigation />
         <div className="max-w-xl">
-          <Link href="/app" className="text-primary text-sm">
-            ← Visão geral
-          </Link>
+          <AppPageHeader
+            title="Saldo"
+            description="Atualize o valor real disponível para recalibrar a previsão."
+            context="Ponto de partida"
+          />
           <section className="border-border bg-surface mt-5 rounded-3xl border p-6 sm:p-8">
-            <p className="text-text-muted text-sm">Ponto de partida</p>
-            <h1 className="mt-1 text-3xl font-semibold">Atualizar saldo real</h1>
+            <h2 className="text-xl font-semibold">Atualizar saldo real</h2>
             <p className="text-text-muted mt-2">
               Informe quanto existe hoje na conta. Isso recalibra a previsão sem alterar suas
               movimentações.
