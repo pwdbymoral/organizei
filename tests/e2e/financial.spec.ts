@@ -144,7 +144,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
           message: `overflow at ${viewport.width}px`,
         })
         .toBeLessThanOrEqual(viewport.width);
-      await expect(pageA.getByRole('heading', { name: 'Organizei' })).toBeVisible();
+      await expect(pageA.getByRole('heading', { name: 'Visão geral' })).toBeVisible();
     }
 
     // Confirm initial state (R$ 0,00)

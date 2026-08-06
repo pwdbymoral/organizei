@@ -36,7 +36,7 @@ test('authentication, protected route, theme and logout @a11y @pwa', async ({ pa
   await page.getByLabel('E-mail').fill('ana@example.test');
   await page.getByLabel('Senha').fill('senha-sintetica-segura-123');
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByRole('heading', { name: 'Organizei' })).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole('heading', { name: 'Visão geral' })).toBeVisible({ timeout: 15000 });
   await page.getByRole('link', { name: 'Mais' }).first().click();
   await expect(page.getByRole('heading', { name: 'Mais' })).toBeVisible();
   await page.setViewportSize({ width: 320, height: 800 });

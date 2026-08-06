@@ -16,7 +16,7 @@ type ForecastPoint = { date: string; label: string; balanceCents: number };
 export function ForecastChart({ data }: { data: ForecastPoint[] }) {
   return (
     <div className="h-64 w-full" aria-label="Gráfico da previsão do saldo">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={240}>
         <AreaChart data={data} margin={{ top: 12, right: 8, left: -18, bottom: 0 }}>
           <defs>
             <linearGradient id="forecast-fill" x1="0" y1="0" x2="0" y2="1">
