@@ -251,6 +251,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     // --- Step 6: User B realizes a transaction ---
     // Click "Realizar" for Luz
     await pageB.getByRole('button', { name: 'Realizar' }).first().click();
+    await pageB.reload();
 
     // Check updated status to "Realizado"
     const lightCard = pageB.getByRole('article').filter({ hasText: 'Conta de Luz' });

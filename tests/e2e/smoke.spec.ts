@@ -30,7 +30,7 @@ test('service worker caches only the public shell @pwa', async ({ page, browserN
   expect(cachedUrls).not.toEqual(expect.arrayContaining(['/app', '/api/auth/sign-in/email']));
 });
 test('authentication, protected route, theme and logout @a11y @pwa', async ({ page }) => {
-  await page.goto('/app/more');
+  await page.goto('/app');
   await expect(page).toHaveURL(/\/login/);
   await page.waitForLoadState('networkidle');
   await page.getByLabel('E-mail').fill('ana@example.test');
