@@ -50,6 +50,13 @@
       "when": 1785975106148,
       "tag": "0006_lame_blade",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786012274129,
+      "tag": "0007_gifted_mad_thinker",
+      "breakpoints": true
     }
   ]
 }

@@ -7,6 +7,7 @@ import {
 } from '@organizei/database';
 import { desc, eq, inArray } from 'drizzle-orm';
 import {
+  calculateCashSummary,
   calculateDailyProjectionWithPayments,
   calculateMonthlyProjectionWithPayments,
   toCivilDate,
@@ -108,6 +109,7 @@ export async function getDashboardData(
     payments,
     recurrenceById,
     projection,
+    cashSummary: calculateCashSummary(activeBalance, today, normalizedMovements, payments),
     monthlyProjection,
     monthlyTotals,
     recentMovements,

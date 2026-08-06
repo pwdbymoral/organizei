@@ -57,6 +57,14 @@ export interface ProjectionResult {
   firstNegativeDate: string | null;
 }
 
+export interface CashSummary {
+  currentBalanceCents: number;
+  balanceAsOf: string;
+  freeCashCents: number;
+  freeCashThrough: string;
+  nextIncomeDate: string | null;
+}
+
 export interface RecurrenceRuleVersion {
   id: string;
   seriesId: string;
@@ -75,6 +83,114 @@ export interface FinancialPayment {
   movementId: string;
   amountCents: number;
   paidDate: string;
+}
+
+function addSignedAmount(current: number, direction: Direction, amount: number) {
+  return direction === 'income' ? current + amount : current - amount;
+}
+
+/**
+ * Derives the current balance from the latest manual checkpoint without
+ * applying pending movements or counting cash events already included in it.
+ */
+export function calculateCurrentBalanceCents(
+  checkpoint: ConfirmedBalance,
+  currentCivilDate: string,
+  movements: FinancialMovement[],
+  payments: FinancialPayment[],
+): number {
+  const checkpointCivilDate = toCivilDate(checkpoint.confirmedAt);
+  const paymentsByMovement = new Map<string, FinancialPayment[]>();
+  for (const payment of payments) {
+    paymentsByMovement.set(payment.movementId, [
+      ...(paymentsByMovement.get(payment.movementId) ?? []),
+      payment,
+    ]);
+  }
+
+  let current = checkpoint.amountCents;
+  for (const movement of movements) {
+    if (movement.status === 'canceled') continue;
+    const movementPayments = paymentsByMovement.get(movement.id) ?? [];
+    if (movementPayments.length > 0) {
+      for (const payment of movementPayments) {
+        if (payment.paidDate > checkpointCivilDate && payment.paidDate <= currentCivilDate) {
+          current = addSignedAmount(current, movement.direction, payment.amountCents);
+        }
+      }
+      continue;
+    }
+    if (
+      movement.status === 'realized' &&
+      movement.realizedDate &&
+      movement.realizedDate > checkpointCivilDate &&
+      movement.realizedDate <= currentCivilDate
+    ) {
+      current = addSignedAmount(
+        current,
+        movement.direction,
+        movement.realizedAmountCents ?? movement.expectedAmountCents,
+      );
+    }
+  }
+  return current;
+}
+
+/**
+ * Calculates conservative cash available before the next known income. The
+ * next income itself is not spendable yet, so expenses on that day are
+ * included in the commitment total.
+ */
+export function calculateCashSummary(
+  checkpoint: ConfirmedBalance,
+  currentCivilDate: string,
+  movements: FinancialMovement[],
+  payments: FinancialPayment[],
+): CashSummary {
+  const currentBalanceCents = calculateCurrentBalanceCents(
+    checkpoint,
+    currentCivilDate,
+    movements,
+    payments,
+  );
+  const paymentsByMovement = new Map<string, FinancialPayment[]>();
+  for (const payment of payments) {
+    paymentsByMovement.set(payment.movementId, [
+      ...(paymentsByMovement.get(payment.movementId) ?? []),
+      payment,
+    ]);
+  }
+  const nextIncomeDate =
+    movements
+      .filter(
+        (movement) =>
+          movement.status === 'pending' &&
+          movement.direction === 'income' &&
+          movement.plannedDate >= currentCivilDate,
+      )
+      .map((movement) => movement.plannedDate)
+      .sort()[0] ?? null;
+  const fallback = new Date(`${currentCivilDate}T00:00:00Z`);
+  fallback.setUTCMonth(fallback.getUTCMonth() + 1, 0);
+  const freeCashThrough = nextIncomeDate ?? fallback.toISOString().slice(0, 10);
+
+  let committedExpenses = 0;
+  for (const movement of movements) {
+    if (movement.status !== 'pending' || movement.direction !== 'expense') continue;
+    const movementPayments = paymentsByMovement.get(movement.id) ?? [];
+    const remaining = remainingAmountCents(movement.expectedAmountCents, movementPayments);
+    if (movement.plannedDate <= freeCashThrough && remaining > 0) {
+      committedExpenses += remaining;
+    }
+  }
+
+  return {
+    currentBalanceCents,
+    balanceAsOf: currentCivilDate,
+    freeCashCents: currentBalanceCents - committedExpenses,
+    freeCashThrough,
+    nextIncomeDate,
+  };
 }
 
 export interface MonthlyProjection {

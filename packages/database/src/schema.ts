@@ -35,11 +35,65 @@ export const userPreferences = pgTable(
     dailySummary: boolean('daily_summary').notNull().default(true),
     balanceAlerts: boolean('balance_alerts').notNull().default(true),
     dueReminders: boolean('due_reminders').notNull().default(true),
+    registrationReminder: boolean('registration_reminder').notNull().default(true),
+    registrationReminderTime: text('registration_reminder_time').notNull().default('20:00'),
+    timezone: text('timezone').notNull().default('America/Maceio'),
     createdAt,
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     check('user_preferences_theme_check', sql`${table.theme} in ('system', 'light', 'dark')`),
+  ],
+);
+
+export const pushSubscription = pgTable(
+  'push_subscriptions',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    timezone: text('timezone').notNull().default('America/Maceio'),
+    userAgent: text('user_agent'),
+    createdAt,
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('push_subscription_endpoint_unique').on(table.endpoint),
+    index('push_subscription_user_id_idx').on(table.userId),
+  ],
+);
+
+export const notificationDelivery = pgTable(
+  'notification_deliveries',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    dedupeKey: text('dedupe_key').notNull(),
+    scheduledFor: timestamp('scheduled_for', { withTimezone: true }).notNull(),
+    status: text('status').notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    lockedUntil: timestamp('locked_until', { withTimezone: true }),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    lastError: text('last_error'),
+    createdAt,
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('notification_delivery_dedupe_unique').on(table.dedupeKey),
+    index('notification_delivery_due_idx').on(table.status, table.scheduledFor),
+    index('notification_delivery_user_id_idx').on(table.userId),
+    check(
+      'notification_delivery_status_check',
+      sql`${table.status} in ('pending', 'processing', 'sent', 'failed')`,
+    ),
   ],
 );
 
