@@ -527,7 +527,7 @@ function OverviewDashboard({ data }: { data: Awaited<ReturnType<typeof getDashbo
 
         <section className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
           <article className="bg-primary rounded-3xl p-6 text-white shadow-sm sm:p-8">
-            <p className="text-sm text-white/70">Saldo disponível</p>
+            <p className="text-sm text-white/85">Saldo disponível</p>
             <p className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
               {formatMoney(data.activeBalance.amountCents)}
             </p>

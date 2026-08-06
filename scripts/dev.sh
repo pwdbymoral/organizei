@@ -19,4 +19,8 @@ if [ -f .env.local ]; then
   pnpm db:migrate
 fi
 
+# Turbopack's development cache is disposable. Remove stale task storage left
+# by a different Node/Next process or an interrupted build before booting.
+rm -rf apps/web/.next/dev/cache/turbopack apps/web/.next/dev/lock
+
 exec pnpm --filter @organizei/web dev
