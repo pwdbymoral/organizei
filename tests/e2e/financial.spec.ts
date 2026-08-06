@@ -250,12 +250,17 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
 
     // --- Step 6: User B realizes a transaction ---
     // Click "Realizar" for Luz
-    await pageB.getByRole('button', { name: 'Realizar' }).first().click();
+    const lightCard = pageB.getByRole('article').filter({ hasText: 'Conta de Luz' });
+    await lightCard.getByRole('button', { name: 'Realizar' }).click();
     await pageB.reload();
 
     // Check updated status to "Realizado"
-    const lightCard = pageB.getByRole('article').filter({ hasText: 'Conta de Luz' });
-    await expect(lightCard.getByText('Realizado', { exact: true })).toBeVisible();
+    await expect(
+      pageB
+        .getByRole('article')
+        .filter({ hasText: 'Conta de Luz' })
+        .getByText('Realizado', { exact: true }),
+    ).toBeVisible();
 
     // --- Step 8: Login User C (adversary in other space, different context) ---
     const contextC = await browser.newContext();
