@@ -25,6 +25,24 @@ export const user = pgTable('user', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const userPreferences = pgTable(
+  'user_preferences',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    theme: text('theme').notNull().default('system'),
+    dailySummary: boolean('daily_summary').notNull().default(true),
+    balanceAlerts: boolean('balance_alerts').notNull().default(true),
+    dueReminders: boolean('due_reminders').notNull().default(true),
+    createdAt,
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check('user_preferences_theme_check', sql`${table.theme} in ('system', 'light', 'dark')`),
+  ],
+);
+
 export const session = pgTable(
   'session',
   {

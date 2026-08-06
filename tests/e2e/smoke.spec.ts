@@ -37,6 +37,13 @@ test('authentication, protected route, theme and logout @a11y @pwa', async ({ pa
   await page.getByLabel('Senha').fill('senha-sintetica-segura-123');
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page.getByRole('heading', { name: 'Organizei' })).toBeVisible({ timeout: 15000 });
+  await page.getByRole('link', { name: 'Mais' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Mais' })).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 800 });
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(320);
+  await page.getByRole('link', { name: 'Início' }).first().click();
   await expect(page.getByLabel('Tema').getByRole('button', { name: 'Escuro' })).toBeEnabled();
   await page.getByLabel('Tema').getByRole('button', { name: 'Escuro' }).click();
   await expect(page.locator('html')).toHaveClass(/dark/);

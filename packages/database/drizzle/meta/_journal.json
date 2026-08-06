@@ -43,6 +43,13 @@
       "when": 1785968069262,
       "tag": "0005_wet_calypso",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785975106148,
+      "tag": "0006_lame_blade",
+      "breakpoints": true
     }
   ]
 }
