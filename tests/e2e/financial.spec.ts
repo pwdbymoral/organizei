@@ -167,8 +167,10 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageA.getByLabel('Descrição').fill('Salário Mensal');
     await pageA.getByLabel('Tipo').selectOption('income');
     await pageA.getByLabel('Valor').fill('50.00');
-    // Set planned date to today in Maceió timezone
-    const today = new Date().toISOString().split('T')[0];
+    // Match the application's civil date so the projection includes today's movement.
+    const today = await pageA.evaluate(() =>
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Maceio' }).format(new Date()),
+    );
     await pageA.getByLabel('Data Planejada').fill(today);
     await pageA.getByRole('button', { name: 'Salvar' }).click();
 
