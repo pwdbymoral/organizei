@@ -77,3 +77,12 @@ Concluir o MVP financeiro com recorrências e pagamentos corretos, uma interface
 ## Estado atual
 
 As fundações e o hardening do MVP estão registrados nos commits `85d4234`, `7fbcc30` e `a8029ff`. As verificações finais passaram: `pnpm verify`, `pnpm test:e2e:docker` (10 testes) e `pnpm security:check`.
+
+## Incremento de decisão diária (concluído)
+
+- Implementado onboarding curto com saldo inicial e lembrete diário configurável.
+- Implementado resumo de saldo atual estimado e caixa livre até o próximo recebimento.
+- Home, adição, movimentações, previsão e navegação foram reorganizadas para uso mobile-first.
+- Implementado cenário temporário de impacto e tabelas textuais acessíveis para gráficos.
+- Implementado contrato de assinaturas Push, entregas idempotentes e worker Coolify separado.
+- Evidências finais: `pnpm verify` passou (formatação, lint, tipos, 19 testes unitários, 8 de integração, validação de agentes/workflows, migrações e build); `pnpm test:e2e:docker` passou com 9 testes e 1 cenário WebKit ignorado por limitação do ambiente; `pnpm security:check` não encontrou vulnerabilidades de produção; smoke do worker passou com PostgreSQL local migrado e chaves VAPID efêmeras.
