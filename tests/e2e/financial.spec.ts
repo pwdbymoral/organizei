@@ -153,12 +153,14 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await expect(pageA.getByText('R$ 0,00').first()).toBeVisible();
 
     // --- Step 2: Confirm new balance ---
-    await pageA.getByPlaceholder('Ajustar saldo (R$)').fill('100.00');
-    await pageA.getByRole('button', { name: 'Confirmar' }).click();
+    await pageA.getByRole('link', { name: 'Atualizar saldo real' }).click();
+    await expect(pageA.getByRole('heading', { name: 'Saldo' })).toBeVisible();
+    await pageA.getByLabel('Saldo disponível').fill('100.00');
+    await pageA.getByRole('button', { name: 'Salvar saldo' }).click();
     await expect(pageA.getByText('R$ 100,00').first()).toBeVisible();
 
     // --- Step 3: Add transactions (Income and Expense) ---
-    await pageA.getByRole('link', { name: '+ Movimentação' }).click();
+    await pageA.getByRole('link', { name: /Adicionar movimentação/ }).click();
     await expect(pageA.getByRole('heading', { name: 'Adição rápida' })).toBeVisible();
 
     // Add Income
@@ -175,7 +177,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await expect(pageA.getByText('Salário Mensal')).toBeVisible();
 
     // Add Expense (that makes projection drop, we will set a future one to check projection)
-    await pageA.getByRole('link', { name: '+ Movimentação' }).click();
+    await pageA.getByRole('link', { name: /Adicionar movimentação/ }).click();
     await expect(pageA.getByRole('heading', { name: 'Adição rápida' })).toBeVisible();
     await pageA.getByLabel('Descrição').fill('Conta de Luz');
     await pageA.getByLabel('Tipo').selectOption('expense');
@@ -200,7 +202,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageA.goto('/app');
 
     // Recurring movement plus an occurrence-only exception must remain operable on mobile.
-    await pageA.getByRole('link', { name: '+ Movimentação' }).click();
+    await pageA.getByRole('link', { name: /Adicionar movimentação/ }).click();
     await expect(pageA.getByRole('heading', { name: 'Adição rápida' })).toBeVisible();
     await pageA.getByLabel('Repetição').selectOption('monthly');
     await pageA.getByLabel('Descrição').fill('Mensalidade');
