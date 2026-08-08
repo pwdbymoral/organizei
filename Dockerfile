@@ -19,6 +19,7 @@ RUN addgroup -S organizei && adduser -S organizei -G organizei
 COPY --from=build --chown=organizei:organizei /app/apps/web/.next/standalone ./
 COPY --from=build --chown=organizei:organizei /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build --chown=organizei:organizei /app/apps/web/public ./apps/web/public
+COPY --from=build --chown=organizei:organizei /app/packages/database/drizzle ./packages/database/drizzle
 USER organizei
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 CMD node -e "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
