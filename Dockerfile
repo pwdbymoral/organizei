@@ -31,4 +31,5 @@ FROM base AS worker
 COPY . .
 ENV NODE_ENV=production
 USER organizei
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 CMD true
 CMD ["pnpm", "notifications:worker"]
