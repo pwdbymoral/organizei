@@ -3,7 +3,16 @@ import { execFileSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import { eq } from 'drizzle-orm';
 import { hashPassword } from 'better-auth/crypto';
-import { administrativeAudit, account, db, pool, session, user } from '../src';
+import {
+  administrativeAudit,
+  account,
+  db,
+  pool,
+  session,
+  user,
+  familySpace,
+  familyMembership,
+} from '../src';
 
 const emailOk = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const fail = (message: string): never => {
@@ -69,6 +78,32 @@ async function main() {
         userId: id,
         password: await hashPassword(secret),
       });
+
+      // Find or create the first family space
+      let spaceId: string;
+      const spaces = await tx.select().from(familySpace).limit(1);
+      if (spaces.length === 0) {
+        spaceId = randomUUID();
+        await tx.insert(familySpace).values({ id: spaceId, name: 'Espaço Familiar' });
+        console.log('Primeiro espaço familiar criado ("Espaço Familiar").');
+      } else {
+        spaceId = spaces[0].id;
+      }
+
+      // Check existing members of this space to decide role
+      const memberships = await tx
+        .select()
+        .from(familyMembership)
+        .where(eq(familyMembership.spaceId, spaceId));
+      const role = memberships.length === 0 ? 'admin' : 'member';
+      await tx.insert(familyMembership).values({
+        id: randomUUID(),
+        spaceId,
+        userId: id,
+        role,
+      });
+      console.log(`Usuário associado ao espaço familiar como '${role}'.`);
+
       await tx
         .insert(administrativeAudit)
         .values({ id: randomUUID(), action: 'user.create', targetUserId: id, targetEmail: email });
