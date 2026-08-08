@@ -28,7 +28,8 @@ CMD ["node", "apps/web/server.js"]
 # Coolify can deploy this target as a separate long-running worker using the
 # same source image and runtime environment. It never serves HTTP traffic.
 FROM base AS worker
-COPY . .
+COPY --chown=organizei:organizei . .
+RUN chown -R organizei:organizei /app
 ENV NODE_ENV=production
 USER organizei
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 CMD true
