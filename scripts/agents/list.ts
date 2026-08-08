@@ -1,4 +1,5 @@
 import { readdir } from 'node:fs/promises';
+
 const skills = await readdir('.agents/skills', { withFileTypes: true });
 console.log(
   skills

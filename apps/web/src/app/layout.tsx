@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { ThemeProvider } from 'next-themes';
 import { ServiceWorker } from '@/components/service-worker';
 import './globals.css';
+
 export const metadata: Metadata = {
   title: 'Organizei',
   description: 'Planejador de fluxo de caixa familiar',

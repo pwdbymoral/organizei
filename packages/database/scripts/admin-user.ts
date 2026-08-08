@@ -29,7 +29,7 @@ async function password(fromStdin: boolean): Promise<string> {
     process.stdout.write('\n');
   }
 }
-async function audit(action: string, targetUserId: string | null, targetEmail: string) {
+async function _audit(action: string, targetUserId: string | null, targetEmail: string) {
   await db
     .insert(administrativeAudit)
     .values({ id: randomUUID(), action, targetUserId, targetEmail });
