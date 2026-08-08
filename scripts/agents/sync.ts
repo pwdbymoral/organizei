@@ -1,4 +1,5 @@
 import { copyFile, mkdir } from 'node:fs/promises';
+
 const adapters = ['CLAUDE.md', 'GEMINI.md'];
 async function main() {
   await mkdir('.claude/skills', { recursive: true });

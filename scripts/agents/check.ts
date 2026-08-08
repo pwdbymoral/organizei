@@ -1,4 +1,5 @@
 import { readFile, readdir } from 'node:fs/promises';
+
 async function main() {
   const canonical = await readFile('AGENTS.md', 'utf8');
   for (const file of ['CLAUDE.md', 'GEMINI.md'])

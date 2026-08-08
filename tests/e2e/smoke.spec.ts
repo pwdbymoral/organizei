@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+
 test('login is accessible @a11y', async ({ page }) => {
   await page.goto('/login');
   await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible();

@@ -274,7 +274,7 @@ export function calculateDailyProjection(
   }
 
   // Calculate balances
-  let currentBalance = confirmedBalance.amountCents;
+  const currentBalance = confirmedBalance.amountCents;
   let lowestBalance = currentBalance;
   let firstNegativeDate: string | null = null;
 
