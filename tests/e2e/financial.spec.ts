@@ -280,7 +280,8 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     // --- Step 6: User B realizes a transaction ---
     // Register the full payment for Luz
     const lightCard = pageB.getByRole('article').filter({ hasText: 'Conta de Luz' });
-    await lightCard.getByRole('button', { name: 'Registrar pagamento integral' }).click();
+    await lightCard.getByRole('button', { name: 'Ações para Conta de Luz' }).click();
+    await pageB.getByRole('button', { name: 'Registrar pagamento integral' }).click();
     await pageB.reload();
 
     // Check updated status to "Realizado"
