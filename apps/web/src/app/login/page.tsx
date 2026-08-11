@@ -1,6 +1,10 @@
 'use client';
 import { useState } from 'react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function LoginPage() {
   const [error, setError] = useState('');
@@ -27,45 +31,34 @@ export default function LoginPage() {
         <p className="font-semibold">Organizei</p>
         <ThemeToggle />
       </div>
-      <section aria-labelledby="login-title" className="bg-surface rounded-lg border p-6">
-        <h1 id="login-title" className="text-2xl font-semibold">
-          Entrar
-        </h1>
-        <p className="text-text-muted mt-2">Use suas credenciais individuais.</p>
-        <form action={submit} className="mt-6 grid gap-4">
-          <label>
-            E-mail
-            <input
-              required
-              name="email"
-              type="email"
-              autoComplete="email"
-              className="bg-background mt-1 w-full rounded border p-3"
-            />
-          </label>
-          <label>
-            Senha
-            <input
+      <Card>
+        <CardHeader>
+          <CardTitle id="login-title">Entrar</CardTitle>
+          <CardDescription>Use suas credenciais individuais.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={submit} className="mt-6 grid gap-4">
+            <Label htmlFor="email">E-mail</Label>
+            <Input id="email" required name="email" type="email" autoComplete="email" />
+            <Label htmlFor="password">Senha</Label>
+            <Input
+              id="password"
               required
               name="password"
               type="password"
               autoComplete="current-password"
-              className="bg-background mt-1 w-full rounded border p-3"
             />
-          </label>
-          {error && (
-            <p role="alert" className="text-danger">
-              {error}
-            </p>
-          )}
-          <button
-            disabled={pending}
-            className="bg-primary min-h-12 rounded p-3 font-medium text-white transition-opacity disabled:cursor-wait disabled:opacity-70"
-          >
-            {pending ? 'Entrando…' : 'Entrar'}
-          </button>
-        </form>
-      </section>
+            {error && (
+              <p role="alert" className="text-danger">
+                {error}
+              </p>
+            )}
+            <Button disabled={pending} className="min-h-12">
+              {pending ? 'Entrando…' : 'Entrar'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </main>
   );
 }

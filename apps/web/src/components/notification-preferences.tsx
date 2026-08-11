@@ -1,10 +1,14 @@
 'use client';
 
-import { Bell, Check, Loader2 } from 'lucide-react';
+import { Bell, Check } from 'lucide-react';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useTheme } from 'next-themes';
 import { saveUserPreferences, type UserPreferences } from '../actions/preferences';
 import { ThemeToggle } from './theme-toggle';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Spinner } from './ui/spinner';
+import { Switch } from './ui/switch';
 
 export function NotificationPreferences({ initial }: { initial: UserPreferences }) {
   const { theme, setTheme } = useTheme();
@@ -106,11 +110,7 @@ export function NotificationPreferences({ initial }: { initial: UserPreferences 
             </h2>
             <p className="text-text-muted mt-1 text-sm">Escolha os avisos úteis para sua rotina.</p>
           </div>
-          <button
-            type="button"
-            onClick={requestPermission}
-            className="text-primary text-sm font-medium underline-offset-4 hover:underline"
-          >
+          <Button type="button" variant="link" className="px-0" onClick={requestPermission}>
             {subscriptionState === 'subscribed'
               ? 'Alertas ativos neste dispositivo'
               : permission === 'granted'
@@ -118,7 +118,7 @@ export function NotificationPreferences({ initial }: { initial: UserPreferences 
                 : permission === 'denied'
                   ? 'Permissão bloqueada'
                   : 'Permitir no navegador'}
-          </button>
+          </Button>
         </div>
         <div className="mt-4 grid gap-2">
           {[
@@ -139,12 +139,9 @@ export function NotificationPreferences({ initial }: { initial: UserPreferences 
               key={name}
               className="border-border hover:bg-surface-elevated flex cursor-pointer items-center gap-3 rounded-xl border p-3"
             >
-              <input
+              <Switch
                 name={name}
-                type="checkbox"
                 defaultChecked={initial[name as keyof UserPreferences] as boolean}
-                role="switch"
-                className="border-border bg-background checked:bg-primary relative mt-0.5 h-6 w-10 shrink-0 appearance-none rounded-full border transition-colors before:absolute before:left-1 before:top-1 before:size-4 before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-4"
               />
               <span>
                 <span className="block text-sm font-medium">{label}</span>
@@ -158,28 +155,23 @@ export function NotificationPreferences({ initial }: { initial: UserPreferences 
           htmlFor="registrationReminderTime"
         >
           Horário do lembrete diário
-          <input
+          <Input
             id="registrationReminderTime"
             name="registrationReminderTime"
             type="time"
             defaultValue={initial.registrationReminderTime}
-            className="border-border bg-background text-text min-h-11 rounded-xl border px-3 text-sm"
           />
         </label>
         <input type="hidden" name="timezone" value={initial.timezone} />
       </div>
-      <button
-        type="submit"
-        disabled={isPending}
-        className="bg-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 font-semibold text-white disabled:opacity-60"
-      >
+      <Button type="submit" disabled={isPending} className="min-h-11">
         {isPending ? (
-          <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+          <Spinner aria-hidden="true" />
         ) : saved ? (
           <Check aria-hidden="true" className="size-4" />
         ) : null}
         {isPending ? 'Salvando…' : saved ? 'Preferências salvas' : 'Salvar preferências'}
-      </button>
+      </Button>
     </form>
   );
 }

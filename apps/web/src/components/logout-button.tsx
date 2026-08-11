@@ -1,11 +1,13 @@
 'use client';
 import { LogOut } from 'lucide-react';
+import { Button } from './ui/button';
 
 export function LogoutButton() {
   return (
-    <button
+    <Button
       type="button"
-      className="text-text-muted hover:bg-surface-elevated hover:text-text inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--color-primary]"
+      variant="ghost"
+      size="sm"
       aria-label="Sair"
       title="Sair"
       onClick={async () => {
@@ -22,6 +24,6 @@ export function LogoutButton() {
     >
       <LogOut aria-hidden="true" className="size-4" />
       <span className="hidden sm:inline">Sair</span>
-    </button>
+    </Button>
   );
 }

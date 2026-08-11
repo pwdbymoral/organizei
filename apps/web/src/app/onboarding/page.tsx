@@ -32,8 +32,8 @@ export default async function OnboardingPage() {
           <p className="text-text-muted text-sm">Primeiro passo</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Vamos começar pelo saldo</h1>
           <p className="text-text-muted mt-3 text-sm leading-6">
-            Informe uma estimativa do que existe hoje. Depois, basta registrar as movimentações para
-            acompanhar o caixa e as próximas decisões.
+            Informe quanto existe hoje no caixa. Depois, registre suas transações e o saldo será
+            atualizado automaticamente.
           </p>
           <div className="mt-8">
             <OnboardingForm />

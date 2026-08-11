@@ -1,8 +1,12 @@
 'use client';
 
-import * as Dialog from '@radix-ui/react-dialog';
 import { useActionState, useEffect, useState } from 'react';
 import { splitRecurrenceFormAction, updateOccurrenceFormAction } from '../actions/financial';
+import { ResponsiveFormSurface } from './responsive-form-surface';
+import { Button } from './ui/button';
+import { Field, FieldGroup, FieldLabel } from './ui/field';
+import { Input } from './ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 const initialFinancialFormState = { status: 'idle' as const, message: '' };
 
@@ -19,11 +23,6 @@ type MovementDialogProps = {
     plannedDate: string;
   };
 };
-
-const inputClass =
-  'border-border bg-background text-text w-full rounded-md border px-3 py-2 text-sm';
-const buttonClass =
-  'border-border bg-background text-text min-h-11 rounded-md border px-3 py-2 text-xs font-semibold hover:bg-surface-elevated';
 
 function FormFeedback({
   message,
@@ -61,111 +60,78 @@ export function FinancialMovementDialogs({ spaceId, movement }: MovementDialogPr
 
   return (
     <>
-      <Dialog.Root open={occurrenceOpen} onOpenChange={setOccurrenceOpen}>
-        <Dialog.Trigger asChild>
-          <button type="button" className={buttonClass}>
+      <ResponsiveFormSurface
+        open={occurrenceOpen}
+        onOpenChange={setOccurrenceOpen}
+        trigger={
+          <Button type="button" variant="outline" className="w-full">
             Editar esta
-          </button>
-        </Dialog.Trigger>
-        <Dialog.Portal>
-          <Dialog.Overlay className="bg-text/35 fixed inset-0" />
-          <Dialog.Content className="bg-surface text-text fixed inset-x-4 top-1/2 z-10 mx-auto max-h-[90vh] w-auto max-w-lg -translate-y-1/2 overflow-y-auto rounded-xl border p-5 shadow-xl sm:inset-x-0">
-            <Dialog.Title className="text-lg font-semibold">Editar esta ocorrência</Dialog.Title>
-            <Dialog.Description className="text-text-muted mt-1 text-sm">
-              Esta mudança não altera as próximas ocorrências da série.
-            </Dialog.Description>
-            <form action={occurrenceAction} className="mt-5 space-y-4">
-              <input type="hidden" name="spaceId" value={spaceId} />
-              <input type="hidden" name="movementId" value={movement.id} />
-              <input type="hidden" name="version" value={movement.version} />
-              <MovementFields movement={movement} />
-              <FormFeedback {...occurrenceState} />
-              <div className="flex flex-wrap justify-end gap-2">
-                <Dialog.Close asChild>
-                  <button type="button" className={buttonClass}>
-                    Voltar
-                  </button>
-                </Dialog.Close>
-                <button
-                  type="submit"
-                  disabled={occurrencePending}
-                  className="bg-primary min-h-11 rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                >
-                  {occurrencePending ? 'Salvando…' : 'Salvar ocorrência'}
-                </button>
-              </div>
-            </form>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+          </Button>
+        }
+        title="Editar transação"
+        description="Ajuste os detalhes desta transação."
+      >
+        <form action={occurrenceAction} className="grid gap-5">
+          <input type="hidden" name="spaceId" value={spaceId} />
+          <input type="hidden" name="movementId" value={movement.id} />
+          <input type="hidden" name="version" value={movement.version} />
+          <MovementFields movement={movement} />
+          <FormFeedback {...occurrenceState} />
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setOccurrenceOpen(false)}>
+              Voltar
+            </Button>
+            <Button type="submit" disabled={occurrencePending}>
+              {occurrencePending ? 'Salvando…' : 'Salvar transação'}
+            </Button>
+          </div>
+        </form>
+      </ResponsiveFormSurface>
 
       {movement.recurrenceRuleVersionId && (
-        <Dialog.Root open={seriesOpen} onOpenChange={setSeriesOpen}>
-          <Dialog.Trigger asChild>
-            <button type="button" className={buttonClass}>
+        <ResponsiveFormSurface
+          open={seriesOpen}
+          onOpenChange={setSeriesOpen}
+          trigger={
+            <Button type="button" variant="outline" className="w-full">
               Editar próximas
-            </button>
-          </Dialog.Trigger>
-          <Dialog.Portal>
-            <Dialog.Overlay className="bg-text/35 fixed inset-0" />
-            <Dialog.Content className="bg-surface text-text fixed inset-x-4 top-1/2 z-10 mx-auto max-h-[90vh] w-auto max-w-lg -translate-y-1/2 overflow-y-auto rounded-xl border p-5 shadow-xl sm:inset-x-0">
-              <Dialog.Title className="text-lg font-semibold">
-                Editar esta e as próximas
-              </Dialog.Title>
-              <Dialog.Description className="text-text-muted mt-1 text-sm">
-                Ocorrências anteriores permanecem intactas.
-              </Dialog.Description>
-              <form action={seriesAction} className="mt-5 space-y-4">
-                <input type="hidden" name="spaceId" value={spaceId} />
-                <input type="hidden" name="ruleId" value={movement.recurrenceRuleVersionId} />
-                <input type="hidden" name="effectiveFrom" value={movement.plannedDate} />
-                <MovementFields movement={movement} includeCadence />
-                <div>
-                  <label htmlFor={`end-${movement.id}`} className="mb-1 block text-sm font-medium">
-                    Data final (opcional)
-                  </label>
-                  <input
-                    id={`end-${movement.id}`}
-                    name="effectiveUntil"
-                    type="date"
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor={`count-${movement.id}`}
-                    className="mb-1 block text-sm font-medium"
-                  >
-                    Ocorrências restantes (opcional)
-                  </label>
-                  <input
-                    id={`count-${movement.id}`}
-                    name="maxOccurrences"
-                    type="number"
-                    min="1"
-                    inputMode="numeric"
-                    className={inputClass}
-                  />
-                </div>
-                <FormFeedback {...seriesState} />
-                <div className="flex flex-wrap justify-end gap-2">
-                  <Dialog.Close asChild>
-                    <button type="button" className={buttonClass}>
-                      Voltar
-                    </button>
-                  </Dialog.Close>
-                  <button
-                    type="submit"
-                    disabled={seriesPending}
-                    className="bg-primary min-h-11 rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                  >
-                    {seriesPending ? 'Salvando…' : 'Salvar próximas'}
-                  </button>
-                </div>
-              </form>
-            </Dialog.Content>
-          </Dialog.Portal>
-        </Dialog.Root>
+            </Button>
+          }
+          title="Editar esta e as próximas"
+          description="Ocorrências anteriores permanecem intactas."
+        >
+          <form action={seriesAction} className="grid gap-5">
+            <input type="hidden" name="spaceId" value={spaceId} />
+            <input type="hidden" name="ruleId" value={movement.recurrenceRuleVersionId} />
+            <input type="hidden" name="effectiveFrom" value={movement.plannedDate} />
+            <MovementFields movement={movement} includeCadence />
+            <Field>
+              <FieldLabel htmlFor={'end-' + movement.id}>Data final (opcional)</FieldLabel>
+              <Input id={'end-' + movement.id} name="effectiveUntil" type="date" />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={'count-' + movement.id}>
+                Ocorrências restantes (opcional)
+              </FieldLabel>
+              <Input
+                id={'count-' + movement.id}
+                name="maxOccurrences"
+                type="number"
+                min="1"
+                inputMode="numeric"
+              />
+            </Field>
+            <FormFeedback {...seriesState} />
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setSeriesOpen(false)}>
+                Voltar
+              </Button>
+              <Button type="submit" disabled={seriesPending}>
+                {seriesPending ? 'Salvando…' : 'Salvar próximas'}
+              </Button>
+            </div>
+          </form>
+        </ResponsiveFormSurface>
       )}
     </>
   );
@@ -176,80 +142,67 @@ function MovementFields({
   includeCadence = false,
 }: Pick<MovementDialogProps, 'movement'> & { includeCadence?: boolean }) {
   return (
-    <>
-      <div>
-        <label htmlFor={`description-${movement.id}`} className="mb-1 block text-sm font-medium">
-          Descrição
-        </label>
-        <input
-          id={`description-${movement.id}`}
+    <FieldGroup>
+      <Field>
+        <FieldLabel htmlFor={'description-' + movement.id}>Descrição</FieldLabel>
+        <Input
+          id={'description-' + movement.id}
           name="description"
           defaultValue={movement.description}
           required
           maxLength={160}
-          className={inputClass}
         />
-      </div>
+      </Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor={`direction-${movement.id}`} className="mb-1 block text-sm font-medium">
-            Tipo
-          </label>
-          <select
-            id={`direction-${movement.id}`}
-            name="direction"
-            defaultValue={movement.direction}
-            className={inputClass}
-          >
-            <option value="expense">Saída</option>
-            <option value="income">Entrada</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor={`amount-${movement.id}`} className="mb-1 block text-sm font-medium">
-            Valor (R$)
-          </label>
-          <input
-            id={`amount-${movement.id}`}
+        <Field>
+          <FieldLabel htmlFor={'direction-' + movement.id}>Tipo</FieldLabel>
+          <Select name="direction" defaultValue={movement.direction}>
+            <SelectTrigger id={'direction-' + movement.id} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="expense">Saída</SelectItem>
+              <SelectItem value="income">Entrada</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor={'amount-' + movement.id}>Valor (R$)</FieldLabel>
+          <Input
+            id={'amount-' + movement.id}
             name="amount"
             type="text"
             inputMode="decimal"
             defaultValue={(movement.expectedAmountCents / 100).toFixed(2)}
             required
-            className={inputClass}
           />
-        </div>
+        </Field>
       </div>
       {includeCadence ? (
-        <div>
-          <label htmlFor={`cadence-${movement.id}`} className="mb-1 block text-sm font-medium">
-            Repetição
-          </label>
-          <select
-            id={`cadence-${movement.id}`}
-            name="cadence"
-            defaultValue={movement.cadence ?? 'monthly'}
-            className={inputClass}
-          >
-            <option value="weekly">Semanal</option>
-            <option value="monthly">Mensal</option>
-          </select>
-        </div>
+        <Field>
+          <FieldLabel htmlFor={'cadence-' + movement.id}>Repetição</FieldLabel>
+          <Select name="cadence" defaultValue={movement.cadence ?? 'monthly'}>
+            <SelectTrigger id={'cadence-' + movement.id} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="weekly">Semanal</SelectItem>
+              <SelectItem value="monthly">Mensal</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
       ) : (
-        <div>
-          <label htmlFor={`date-${movement.id}`} className="mb-1 block text-sm font-medium">
-            Data planejada
-          </label>
-          <input
-            id={`date-${movement.id}`}
+        <Field>
+          <FieldLabel htmlFor={'date-' + movement.id}>Data planejada</FieldLabel>
+          <Input
+            id={'date-' + movement.id}
             name="plannedDate"
             type="date"
             defaultValue={movement.plannedDate}
             required
-            className={inputClass}
           />
-        </div>
+        </Field>
       )}
-    </>
+    </FieldGroup>
   );
 }

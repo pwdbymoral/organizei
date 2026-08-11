@@ -3,6 +3,10 @@
 import { useActionState, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createFinancialMovementFormAction } from '../actions/financial';
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 const initialFinancialFormState = { status: 'idle' as const, message: '' };
 
@@ -10,6 +14,7 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [cadence, setCadence] = useState('once');
+  const [initialStatus, setInitialStatus] = useState<'realized' | 'pending'>('realized');
   const [state, action, pending] = useActionState(
     createFinancialMovementFormAction,
     initialFinancialFormState,
@@ -20,21 +25,44 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
     if (state.status === 'success') {
       formRef.current?.reset();
       setCadence('once');
+      setInitialStatus('realized');
     }
   }, [state.status]);
 
   return (
     <form ref={formRef} action={action} className="grid gap-5" noValidate>
       <input type="hidden" name="spaceId" value={spaceId} />
+      <input type="hidden" name="initialStatus" value={initialStatus} />
+      <div className="grid gap-2">
+        <span className="text-sm font-medium">Situação</span>
+        <Tabs
+          value={initialStatus}
+          onValueChange={(value) => setInitialStatus(value as typeof initialStatus)}
+        >
+          <TabsList className="grid h-auto w-full grid-cols-2">
+            <TabsTrigger value="realized" className="min-h-11">
+              Já aconteceu
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="min-h-11">
+              Está previsto
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Tipo" htmlFor="direction">
-          <select id="direction" name="direction" defaultValue="expense" className={inputClass}>
-            <option value="expense">Saída</option>
-            <option value="income">Entrada</option>
-          </select>
+          <Select name="direction" defaultValue="expense">
+            <SelectTrigger id="direction" className={inputClass}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="expense">Saída</SelectItem>
+              <SelectItem value="income">Entrada</SelectItem>
+            </SelectContent>
+          </Select>
         </Field>
         <Field label="Valor (R$)" htmlFor="amount">
-          <input
+          <Input
             id="amount"
             name="amount"
             inputMode="decimal"
@@ -46,7 +74,7 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
         </Field>
       </div>
       <Field label="Descrição" htmlFor="description">
-        <input
+        <Input
           id="description"
           name="description"
           required
@@ -55,50 +83,63 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
           className={inputClass}
         />
       </Field>
-      <Field label="Data planejada" htmlFor="plannedDate">
+      <Field
+        label={initialStatus === 'realized' ? 'Aconteceu em' : 'Previsto para'}
+        htmlFor="plannedDate"
+      >
         <div className="flex gap-2">
-          <input
+          <Input
             id="plannedDate"
             name="plannedDate"
             type="date"
             defaultValue={today}
+            onChange={(event) => {
+              if (event.target.value > today) setInitialStatus('pending');
+            }}
             required
             className={`${inputClass} flex-1`}
           />
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => {
               const input = document.getElementById('plannedDate') as HTMLInputElement | null;
               if (input) input.value = today;
             }}
-            className="border-border bg-surface-elevated min-h-11 rounded-xl border px-3 text-xs font-semibold"
           >
             Hoje
-          </button>
+          </Button>
         </div>
       </Field>
 
       <div className="border-border bg-surface rounded-2xl border p-4">
         <Field label="Repetição ou parcelamento" htmlFor="cadence">
-          <select
-            id="cadence"
+          <Select
             name="cadence"
             value={cadence}
-            onChange={(event) => setCadence(event.target.value)}
-            className={inputClass}
+            onValueChange={(nextCadence) => {
+              setCadence(nextCadence);
+              if (nextCadence !== 'once') setInitialStatus('pending');
+            }}
           >
-            <option value="once">Não repetir</option>
-            <option value="weekly">Repetir toda semana</option>
-            <option value="monthly">Repetir todo mês</option>
-          </select>
+            <SelectTrigger id="cadence" className={inputClass}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="once">Não repetir</SelectItem>
+              <SelectItem value="weekly">Repetir toda semana</SelectItem>
+              <SelectItem value="monthly">Repetir todo mês</SelectItem>
+            </SelectContent>
+          </Select>
         </Field>
         {cadence !== 'once' && (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label="Até esta data (opcional)" htmlFor="effectiveUntil">
-              <input id="effectiveUntil" name="effectiveUntil" type="date" className={inputClass} />
+              <Input id="effectiveUntil" name="effectiveUntil" type="date" className={inputClass} />
             </Field>
             <Field label="Ou quantidade de vezes" htmlFor="maxOccurrences">
-              <input
+              <Input
                 id="maxOccurrences"
                 name="maxOccurrences"
                 type="number"
@@ -125,20 +166,17 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
         </p>
       )}
       <div className="flex flex-wrap gap-3 pt-2">
-        <button
+        <Button
           type="button"
           onClick={() => router.replace('/app')}
-          className={`${buttonClass} flex-1`}
+          variant="outline"
+          className="flex-1"
         >
           Concluir
-        </button>
-        <button
-          type="submit"
-          disabled={pending}
-          className="bg-primary min-h-12 flex-1 rounded-xl px-4 font-semibold text-white disabled:opacity-60"
-        >
+        </Button>
+        <Button type="submit" disabled={pending} className="flex-1">
           {pending ? 'Salvando…' : state.status === 'success' ? 'Adicionar outra' : 'Salvar'}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -161,6 +199,4 @@ function Field({
   );
 }
 
-const inputClass = 'border-border bg-background text-text min-h-12 w-full rounded-xl border px-3';
-const buttonClass =
-  'border-border bg-surface hover:bg-surface-elevated min-h-12 rounded-xl border px-4 text-center font-semibold transition-colors';
+const inputClass = 'min-h-12 w-full';

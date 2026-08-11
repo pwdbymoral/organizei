@@ -19,8 +19,8 @@ export default async function AddMovementPage() {
     <main className="bg-background text-text min-h-screen pb-28 sm:pb-10">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-5 sm:gap-8 sm:px-8 sm:py-8">
         <AppPageHeader
-          title="Adicionar movimentação"
-          description="Registre uma entrada ou saída sem perder o ritmo do dia."
+          title="Nova transação"
+          description="Registre uma entrada ou saída em poucos passos."
           context="Novo registro"
         />
         <AppNavigation />
