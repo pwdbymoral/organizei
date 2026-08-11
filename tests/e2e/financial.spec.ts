@@ -252,8 +252,10 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await recurringActions
       .getByRole('button', { name: 'Editar', exact: true })
       .dispatchEvent('click');
-    const editScope = pageA.getByRole('dialog', { name: 'O que deseja editar?' });
-    await editScope.getByRole('button', { name: 'Somente esta transação' }).dispatchEvent('click');
+    const editScope = pageA.getByRole('dialog', {
+      name: 'O que deseja editar em Mensalidade?',
+    });
+    await editScope.getByRole('button', { name: 'Somente esta transação' }).click();
     const occurrenceDialog = pageA.getByRole('dialog', { name: 'Editar transação' });
     await expect(occurrenceDialog).toBeVisible();
     expect(
@@ -278,10 +280,10 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await updatedActions
       .getByRole('button', { name: 'Editar', exact: true })
       .dispatchEvent('click');
-    const updatedEditScope = pageA.getByRole('dialog', { name: 'O que deseja editar?' });
-    await updatedEditScope
-      .getByRole('button', { name: 'Esta e as próximas' })
-      .dispatchEvent('click');
+    const updatedEditScope = pageA.getByRole('dialog', {
+      name: 'O que deseja editar em Mensalidade ajustada?',
+    });
+    await updatedEditScope.getByRole('button', { name: 'Esta e as próximas' }).click();
     const seriesDialog = pageA.getByRole('dialog', { name: 'Editar esta e as próximas' });
     await expect(seriesDialog).toBeVisible();
     await seriesDialog.getByLabel('Primeira ocorrência em').fill(firstOfMonth);
