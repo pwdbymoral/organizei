@@ -182,13 +182,14 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
 
     // Add Income
     await pageA.getByLabel('Descrição').fill('Salário Mensal');
-    await pageA.getByLabel('Tipo').selectOption('income');
-    await pageA.getByLabel('Valor').fill('50.00');
+    await pageA.getByRole('combobox', { name: 'Tipo' }).click();
+    await pageA.getByRole('option', { name: 'Entrada' }).click();
+    await pageA.getByLabel('Valor (R$)').fill('50.00');
     // Match the application's civil date so the projection includes today's movement.
     const today = await pageA.evaluate(() =>
       new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Maceio' }).format(new Date()),
     );
-    await pageA.getByLabel('Data planejada').fill(today);
+    await pageA.locator('#plannedDate').fill(today);
     await pageA.getByRole('button', { name: 'Salvar' }).click();
     await expect(pageA.getByText('Movimentação salva.')).toBeVisible();
     await pageA.getByRole('button', { name: 'Concluir' }).click();
@@ -201,10 +202,11 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageA.getByRole('link', { name: /Nova transação/ }).click();
     await expect(pageA.getByRole('heading', { name: 'Nova transação' })).toBeVisible();
     await pageA.getByLabel('Descrição').fill('Conta de Luz');
-    await pageA.getByLabel('Tipo').selectOption('expense');
-    await pageA.getByLabel('Valor').fill('30.00');
+    await pageA.getByRole('combobox', { name: 'Tipo' }).click();
+    await pageA.getByRole('option', { name: 'Saída' }).click();
+    await pageA.getByLabel('Valor (R$)').fill('30.00');
     await pageA.getByRole('tab', { name: 'Está previsto' }).click();
-    await pageA.getByLabel('Data planejada').fill(today);
+    await pageA.locator('#plannedDate').fill(today);
     await pageA.getByRole('button', { name: 'Salvar' }).click();
     await expect(pageA.getByText('Movimentação salva.')).toBeVisible();
     await pageA.getByRole('button', { name: 'Concluir' }).click();
@@ -228,10 +230,11 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     // Recurring movement plus an occurrence-only exception must remain operable on mobile.
     await pageA.getByRole('link', { name: /Nova transação/ }).click();
     await expect(pageA.getByRole('heading', { name: 'Nova transação' })).toBeVisible();
-    await pageA.getByLabel('Repetição').selectOption('monthly');
+    await pageA.getByRole('combobox', { name: 'Repetição ou parcelamento' }).click();
+    await pageA.getByRole('option', { name: 'Repetir todo mês' }).click();
     await pageA.getByLabel('Descrição').fill('Mensalidade');
     await pageA.getByLabel('Valor (R$)').fill('20,00');
-    await pageA.getByLabel('Data planejada').fill(today);
+    await pageA.locator('#plannedDate').fill(today);
     await pageA.getByRole('button', { name: 'Salvar' }).click();
     await expect(pageA.getByText('Movimentação salva.')).toBeVisible();
     await pageA.getByRole('button', { name: 'Concluir' }).click();
