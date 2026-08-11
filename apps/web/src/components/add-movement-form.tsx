@@ -15,6 +15,7 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [cadence, setCadence] = useState('once');
   const [initialStatus, setInitialStatus] = useState<'realized' | 'pending'>('realized');
+  const [plannedDate, setPlannedDate] = useState('');
   const [state, action, pending] = useActionState(
     createFinancialMovementFormAction,
     initialFinancialFormState,
@@ -22,10 +23,15 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Maceio' }).format(new Date());
 
   useEffect(() => {
+    setPlannedDate(today);
+  }, [today]);
+
+  useEffect(() => {
     if (state.status === 'success') {
       formRef.current?.reset();
       setCadence('once');
       setInitialStatus('realized');
+      setPlannedDate(today);
     }
   }, [state.status]);
 
@@ -37,9 +43,13 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
         <span className="text-sm font-medium">Situação</span>
         <Tabs
           value={initialStatus}
-          onValueChange={(value) => setInitialStatus(value as typeof initialStatus)}
+          onValueChange={(value) => {
+            const next = value as typeof initialStatus;
+            setInitialStatus(next);
+            if (next === 'realized' && plannedDate > today) setPlannedDate(today);
+          }}
         >
-          <TabsList className="grid h-auto w-full grid-cols-2">
+          <TabsList className="grid !h-auto min-h-11 w-full grid-cols-2">
             <TabsTrigger value="realized" className="min-h-11">
               Já aconteceu
             </TabsTrigger>
@@ -87,29 +97,33 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
         label={initialStatus === 'realized' ? 'Aconteceu em' : 'Previsto para'}
         htmlFor="plannedDate"
       >
-        <div className="flex gap-2">
+        <div className="grid gap-2 sm:flex">
           <Input
             id="plannedDate"
             name="plannedDate"
             type="date"
-            defaultValue={today}
+            value={plannedDate || today}
             onChange={(event) => {
+              setPlannedDate(event.target.value);
               if (event.target.value > today) setInitialStatus('pending');
             }}
             required
             className={`${inputClass} flex-1`}
           />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const input = document.getElementById('plannedDate') as HTMLInputElement | null;
-              if (input) input.value = today;
-            }}
-          >
-            Hoje
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {datePresets(initialStatus, today).map((preset) => (
+              <Button
+                key={preset.label}
+                type="button"
+                variant={preset.value === plannedDate ? 'secondary' : 'outline'}
+                size="sm"
+                className="min-h-12"
+                onClick={() => setPlannedDate(preset.value)}
+              >
+                {preset.label}
+              </Button>
+            ))}
+          </div>
         </div>
       </Field>
 
@@ -200,3 +214,27 @@ function Field({
 }
 
 const inputClass = 'min-h-12 w-full';
+
+function datePresets(status: 'realized' | 'pending', today: string) {
+  const date = new Date(`${today}T12:00:00Z`);
+  const shift = (days: number) => {
+    const next = new Date(date);
+    next.setUTCDate(next.getUTCDate() + days);
+    return next.toISOString().slice(0, 10);
+  };
+  const startOfMonth = `${today.slice(0, 8)}01`;
+  if (status === 'realized') {
+    return [
+      { label: 'Hoje', value: today },
+      { label: 'Ontem', value: shift(-1) },
+      { label: 'Início do mês', value: startOfMonth },
+    ];
+  }
+  const nextMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
+  return [
+    { label: 'Hoje', value: today },
+    { label: 'Amanhã', value: shift(1) },
+    { label: 'Em 7 dias', value: shift(7) },
+    { label: 'Próximo mês', value: nextMonth.toISOString().slice(0, 10) },
+  ];
+}
