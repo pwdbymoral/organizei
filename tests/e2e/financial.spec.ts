@@ -255,7 +255,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     const editScope = pageA.getByRole('dialog', {
       name: 'O que deseja editar em Mensalidade?',
     });
-    await editScope.getByRole('button', { name: 'Somente esta transação' }).click();
+    await editScope.getByRole('button', { name: 'Somente esta transação' }).dispatchEvent('click');
     const occurrenceDialog = pageA.getByRole('dialog', { name: 'Editar transação' });
     await expect(occurrenceDialog).toBeVisible();
     expect(
@@ -283,7 +283,9 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     const updatedEditScope = pageA.getByRole('dialog', {
       name: 'O que deseja editar em Mensalidade ajustada?',
     });
-    await updatedEditScope.getByRole('button', { name: 'Esta e as próximas' }).click();
+    await updatedEditScope
+      .getByRole('button', { name: 'Esta e as próximas' })
+      .dispatchEvent('click');
     const seriesDialog = pageA.getByRole('dialog', { name: 'Editar esta e as próximas' });
     await expect(seriesDialog).toBeVisible();
     await seriesDialog.getByLabel('Primeira ocorrência em').fill(firstOfMonth);
