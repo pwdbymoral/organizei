@@ -10,6 +10,9 @@ import {
   confirmBalanceCore,
   createBalanceAdjustmentCore,
   createMovementCore,
+  deleteMovementCore,
+  deleteRecurrenceFromHereCore,
+  deleteRecurrenceOccurrenceCore,
   createRecurrenceCore,
   materializeRecurrenceCore,
   materializeSpaceRecurrencesCore,
@@ -55,6 +58,29 @@ export async function updateMovement(
 ) {
   const user = await requireAuth();
   return updateMovementCore(spaceId, movementId, data, version, user.id);
+}
+
+export async function deleteMovement(spaceId: string, movementId: string, version: number) {
+  const user = await requireAuth();
+  return deleteMovementCore(spaceId, movementId, version, user.id);
+}
+
+export async function deleteRecurrenceFromHere(
+  spaceId: string,
+  ruleId: string,
+  effectiveFrom: string,
+) {
+  const user = await requireAuth();
+  return deleteRecurrenceFromHereCore(spaceId, ruleId, effectiveFrom, user.id);
+}
+
+export async function deleteRecurrenceOccurrence(
+  spaceId: string,
+  ruleId: string,
+  effectiveFrom: string,
+) {
+  const user = await requireAuth();
+  return deleteRecurrenceOccurrenceCore(spaceId, ruleId, effectiveFrom, user.id);
 }
 
 export async function createRecurrence(spaceId: string, data: RecurrenceInput) {
@@ -106,14 +132,17 @@ function userFacingError(error: unknown): FinancialFormState {
     'Conflict',
     'Movimentação já finalizada.',
     'Pagamento excede o saldo restante.',
-    'Não é possível cancelar uma movimentação com pagamentos.',
+    'Não é possível excluir uma movimentação realizada.',
+    'Não é possível excluir uma movimentação com pagamentos.',
+    'Não é possível excluir uma série com pagamentos parciais.',
+    'Não é possível alterar uma série com pagamentos parciais futuros.',
+    'A ocorrência realizada não possui próximas ocorrências para editar.',
     'Data do pagamento não pode ser futura.',
     'Descrição inválida.',
     'Valor previsto deve ser um valor positivo em centavos.',
     'Uma transação realizada não pode ter data futura.',
     'O valor realizado deve corresponder ao total pago.',
     'A nova data deve manter a ordem das ocorrências.',
-    'A data da série só pode mudar a partir de uma ocorrência pendente.',
     'A ocorrência deve pertencer ao futuro da série.',
   ];
   return {
@@ -161,6 +190,60 @@ export async function updateOccurrenceFormAction(
     revalidatePath('/app');
     revalidatePath('/app/movements');
     return { status: 'success', message: 'Ocorrência atualizada.' };
+  } catch (error) {
+    return userFacingError(error);
+  }
+}
+
+export async function deleteMovementFormAction(
+  _previous: FinancialFormState,
+  formData: FormData,
+): Promise<FinancialFormState> {
+  try {
+    await deleteMovement(
+      String(formData.get('spaceId')),
+      String(formData.get('movementId')),
+      Number(formData.get('version')),
+    );
+    revalidatePath('/app');
+    revalidatePath('/app/movements');
+    return { status: 'success', message: 'Transação excluída.' };
+  } catch (error) {
+    return userFacingError(error);
+  }
+}
+
+export async function deleteRecurrenceFormAction(
+  _previous: FinancialFormState,
+  formData: FormData,
+): Promise<FinancialFormState> {
+  try {
+    await deleteRecurrenceFromHere(
+      String(formData.get('spaceId')),
+      String(formData.get('ruleId')),
+      String(formData.get('effectiveFrom')),
+    );
+    revalidatePath('/app');
+    revalidatePath('/app/movements');
+    return { status: 'success', message: 'Próximas ocorrências excluídas.' };
+  } catch (error) {
+    return userFacingError(error);
+  }
+}
+
+export async function deleteRecurrenceOccurrenceFormAction(
+  _previous: FinancialFormState,
+  formData: FormData,
+): Promise<FinancialFormState> {
+  try {
+    await deleteRecurrenceOccurrence(
+      String(formData.get('spaceId')),
+      String(formData.get('ruleId')),
+      String(formData.get('effectiveFrom')),
+    );
+    revalidatePath('/app');
+    revalidatePath('/app/movements');
+    return { status: 'success', message: 'Transação excluída.' };
   } catch (error) {
     return userFacingError(error);
   }

@@ -261,6 +261,213 @@ export async function createMovementCore(spaceId: string, data: MovementInput, u
   });
 }
 
+export async function deleteMovementCore(
+  spaceId: string,
+  movementId: string,
+  version: number,
+  userId: string,
+) {
+  await verifyMembership(spaceId, userId);
+  return db.transaction(async (tx) => {
+    const existing = await tx.query.financialMovement.findFirst({
+      where: and(eq(financialMovement.id, movementId), eq(financialMovement.spaceId, spaceId)),
+    });
+    if (!existing) throw new Error('Not found');
+    if (existing.version !== version) throw new Error('Conflict');
+    if (existing.status === 'realized') {
+      throw new Error('Não é possível excluir uma movimentação realizada.');
+    }
+    const payments = await tx.query.financialPayment.findMany({
+      where: eq(financialPayment.movementId, movementId),
+    });
+    if (payments.length > 0) {
+      throw new Error('Não é possível excluir uma movimentação com pagamentos.');
+    }
+    const [deleted] = await tx
+      .delete(financialMovement)
+      .where(
+        and(
+          eq(financialMovement.id, movementId),
+          eq(financialMovement.spaceId, spaceId),
+          eq(financialMovement.version, version),
+        ),
+      )
+      .returning();
+    if (!deleted) throw new Error('Conflict');
+    await tx.insert(financialAuditLog).values({
+      id: randomUUID(),
+      spaceId,
+      movementId,
+      authorId: userId,
+      action: 'financial_movement.delete',
+      changes: JSON.stringify({ version }),
+    });
+    return deleted;
+  });
+}
+
+export async function deleteRecurrenceFromHereCore(
+  spaceId: string,
+  ruleId: string,
+  effectiveFrom: string,
+  userId: string,
+) {
+  assertCivilDate(effectiveFrom, 'Data da exclusão');
+  await verifyMembership(spaceId, userId);
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${ruleId}))`);
+    const rule = await tx.query.recurrenceRuleVersion.findFirst({
+      where: eq(recurrenceRuleVersion.id, ruleId),
+    });
+    if (!rule) throw new Error('Not found');
+    const series = await tx.query.recurrenceSeries.findFirst({
+      where: and(eq(recurrenceSeries.id, rule.seriesId), eq(recurrenceSeries.spaceId, spaceId)),
+    });
+    if (!series) throw new Error('Not found');
+    const selected = await tx.query.financialMovement.findFirst({
+      where: and(
+        eq(financialMovement.recurrenceRuleVersionId, ruleId),
+        eq(financialMovement.plannedDate, effectiveFrom),
+      ),
+    });
+    if (!selected) throw new Error('A data não pertence à recorrência.');
+    if (selected.status === 'realized') {
+      throw new Error('Não é possível excluir uma movimentação realizada.');
+    }
+    const previousDay = new Date(`${effectiveFrom}T00:00:00Z`);
+    previousDay.setUTCDate(previousDay.getUTCDate() - 1);
+    const occurrences = await tx.query.financialMovement.findMany({
+      where: and(
+        eq(financialMovement.recurrenceRuleVersionId, ruleId),
+        eq(financialMovement.status, 'pending'),
+        gte(financialMovement.plannedDate, effectiveFrom),
+      ),
+    });
+    for (const occurrence of occurrences) {
+      const payments = await tx.query.financialPayment.findMany({
+        where: eq(financialPayment.movementId, occurrence.id),
+      });
+      if (payments.length > 0) {
+        throw new Error('Não é possível excluir uma série com pagamentos parciais.');
+      }
+    }
+    await tx
+      .update(recurrenceRuleVersion)
+      .set({ effectiveUntil: previousDay.toISOString().slice(0, 10) })
+      .where(eq(recurrenceRuleVersion.id, ruleId));
+    for (const occurrence of occurrences) {
+      await tx.delete(financialMovement).where(eq(financialMovement.id, occurrence.id));
+    }
+    await tx.insert(financialAuditLog).values({
+      id: randomUUID(),
+      spaceId,
+      authorId: userId,
+      action: 'recurrence.delete_from_here',
+      changes: JSON.stringify({
+        ruleId,
+        effectiveFrom,
+        deletedMovementIds: occurrences.map((m) => m.id),
+      }),
+    });
+    return occurrences;
+  });
+}
+
+export async function deleteRecurrenceOccurrenceCore(
+  spaceId: string,
+  ruleId: string,
+  effectiveFrom: string,
+  userId: string,
+) {
+  assertCivilDate(effectiveFrom, 'Data da exclusão');
+  await verifyMembership(spaceId, userId);
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${ruleId}))`);
+    const rule = await tx.query.recurrenceRuleVersion.findFirst({
+      where: eq(recurrenceRuleVersion.id, ruleId),
+    });
+    if (!rule) throw new Error('Not found');
+    const series = await tx.query.recurrenceSeries.findFirst({
+      where: and(eq(recurrenceSeries.id, rule.seriesId), eq(recurrenceSeries.spaceId, spaceId)),
+    });
+    if (!series) throw new Error('Not found');
+    const occurrence = await tx.query.financialMovement.findFirst({
+      where: and(
+        eq(financialMovement.recurrenceRuleVersionId, ruleId),
+        eq(financialMovement.plannedDate, effectiveFrom),
+      ),
+    });
+    if (!occurrence) throw new Error('A data não pertence à recorrência.');
+    if (occurrence.status === 'realized') {
+      throw new Error('Não é possível excluir uma movimentação realizada.');
+    }
+    const horizon = new Date(`${effectiveFrom}T00:00:00Z`);
+    if (rule.cadence === 'weekly') horizon.setUTCDate(horizon.getUTCDate() + 7);
+    else horizon.setUTCMonth(horizon.getUTCMonth() + 1);
+    const currentDates = generateRecurrenceDates(rule, horizon.toISOString().slice(0, 10));
+    const occurrenceSequence =
+      occurrence?.occurrenceSequence ??
+      currentDates.findIndex((date) => date === effectiveFrom) + 1;
+    if (occurrenceSequence < 1) throw new Error('A data não pertence à recorrência.');
+    const nextEffectiveFrom = currentDates[occurrenceSequence];
+    const affected = await tx.query.financialMovement.findMany({
+      where: and(
+        eq(financialMovement.recurrenceRuleVersionId, ruleId),
+        eq(financialMovement.status, 'pending'),
+        gte(financialMovement.plannedDate, effectiveFrom),
+      ),
+    });
+    for (const item of affected) {
+      const payments = await tx.query.financialPayment.findMany({
+        where: eq(financialPayment.movementId, item.id),
+      });
+      if (payments.length > 0) {
+        throw new Error('Não é possível excluir uma série com pagamentos parciais.');
+      }
+    }
+    const previousDay = new Date(`${effectiveFrom}T00:00:00Z`);
+    previousDay.setUTCDate(previousDay.getUTCDate() - 1);
+    await tx
+      .update(recurrenceRuleVersion)
+      .set({ effectiveUntil: previousDay.toISOString().slice(0, 10) })
+      .where(eq(recurrenceRuleVersion.id, ruleId));
+    for (const item of affected) {
+      await tx.delete(financialMovement).where(eq(financialMovement.id, item.id));
+    }
+    let next: typeof rule | null = null;
+    if (nextEffectiveFrom) {
+      const [created] = await tx
+        .insert(recurrenceRuleVersion)
+        .values({
+          id: randomUUID(),
+          seriesId: rule.seriesId,
+          version: rule.version + 1,
+          effectiveFrom: nextEffectiveFrom,
+          effectiveUntil: rule.effectiveUntil,
+          maxOccurrences:
+            rule.maxOccurrences === null
+              ? null
+              : Math.max(1, rule.maxOccurrences - occurrenceSequence),
+          description: rule.description,
+          direction: rule.direction,
+          expectedAmountCents: rule.expectedAmountCents,
+          cadence: rule.cadence,
+          createdBy: userId,
+        })
+        .returning();
+      next = created ?? null;
+    }
+    await tx.insert(financialAuditLog).values({
+      id: randomUUID(),
+      spaceId,
+      authorId: userId,
+      action: 'recurrence.occurrence_delete',
+      changes: JSON.stringify({ ruleId, effectiveFrom, nextRuleId: next?.id ?? null }),
+    });
+    return next;
+  });
+}
+
 export async function createRecurrenceCore(spaceId: string, data: RecurrenceInput, userId: string) {
   const input = validateMovementInput(data);
   assertCivilDate(data.effectiveFrom, 'Data inicial');
@@ -373,8 +580,6 @@ export async function splitRecurrenceFromHereCore(
   userId: string,
 ) {
   assertCivilDate(effectiveFrom, 'Data da exceção');
-  const firstOccurrenceDate = changes.firstOccurrenceDate ?? effectiveFrom;
-  assertCivilDate(firstOccurrenceDate, 'Primeira ocorrência');
   await verifyMembership(spaceId, userId);
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${ruleId}))`);
@@ -382,12 +587,6 @@ export async function splitRecurrenceFromHereCore(
       where: eq(recurrenceRuleVersion.id, ruleId),
     });
     if (!current) throw new Error('Not found');
-    const input = validateMovementInput({
-      description: changes.description ?? current.description,
-      direction: changes.direction ?? current.direction,
-      expectedAmountCents: changes.expectedAmountCents ?? current.expectedAmountCents,
-      plannedDate: firstOccurrenceDate,
-    });
     const series = await tx.query.recurrenceSeries.findFirst({
       where: and(eq(recurrenceSeries.id, current.seriesId), eq(recurrenceSeries.spaceId, spaceId)),
     });
@@ -398,8 +597,6 @@ export async function splitRecurrenceFromHereCore(
     if (effectiveFrom < current.effectiveFrom) {
       throw new Error('A ocorrência deve pertencer ao futuro da série.');
     }
-    const previousDay = new Date(`${effectiveFrom}T00:00:00Z`);
-    previousDay.setUTCDate(previousDay.getUTCDate() - 1);
     const materializedOccurrence = await tx.query.financialMovement.findFirst({
       where: and(
         eq(financialMovement.recurrenceRuleVersionId, ruleId),
@@ -411,15 +608,41 @@ export async function splitRecurrenceFromHereCore(
       generateRecurrenceDates(current, effectiveFrom).findIndex((date) => date === effectiveFrom) +
         1;
     if (occurrenceSequence < 1) throw new Error('A data não pertence à recorrência.');
+    const nextDateHorizon = new Date(`${effectiveFrom}T00:00:00Z`);
+    if (current.cadence === 'weekly') {
+      nextDateHorizon.setUTCDate(nextDateHorizon.getUTCDate() + 7);
+    } else {
+      nextDateHorizon.setUTCMonth(nextDateHorizon.getUTCMonth() + 1);
+    }
+    const currentDates = generateRecurrenceDates(
+      current,
+      nextDateHorizon.toISOString().slice(0, 10),
+    );
+    const startsAfterRealized = materializedOccurrence?.status === 'realized';
+    const splitEffectiveFrom = startsAfterRealized
+      ? currentDates[occurrenceSequence]
+      : effectiveFrom;
+    if (!splitEffectiveFrom) {
+      throw new Error('A ocorrência realizada não possui próximas ocorrências para editar.');
+    }
+    const firstOccurrenceDate = startsAfterRealized
+      ? splitEffectiveFrom
+      : (changes.firstOccurrenceDate ?? effectiveFrom);
+    assertCivilDate(firstOccurrenceDate, 'Primeira ocorrência');
+    const input = validateMovementInput({
+      description: changes.description ?? current.description,
+      direction: changes.direction ?? current.direction,
+      expectedAmountCents: changes.expectedAmountCents ?? current.expectedAmountCents,
+      plannedDate: firstOccurrenceDate,
+    });
+    const previousDay = new Date(`${splitEffectiveFrom}T00:00:00Z`);
+    previousDay.setUTCDate(previousDay.getUTCDate() - 1);
     const previousOccurrenceDate =
       occurrenceSequence > 1
         ? generateRecurrenceDates(current, effectiveFrom)[occurrenceSequence - 2]
         : null;
     if (previousOccurrenceDate && firstOccurrenceDate <= previousOccurrenceDate) {
       throw new Error('A nova data deve manter a ordem das ocorrências.');
-    }
-    if (materializedOccurrence?.status === 'realized' && firstOccurrenceDate !== effectiveFrom) {
-      throw new Error('A data da série só pode mudar a partir de uma ocorrência pendente.');
     }
     const nextEffectiveUntil =
       changes.effectiveUntil === undefined ? current.effectiveUntil : changes.effectiveUntil;
@@ -432,7 +655,7 @@ export async function splitRecurrenceFromHereCore(
       changes.maxOccurrences === undefined
         ? current.maxOccurrences === null
           ? null
-          : Math.max(1, current.maxOccurrences - occurrenceSequence + 1)
+          : Math.max(1, current.maxOccurrences - occurrenceSequence + (startsAfterRealized ? 0 : 1))
         : changes.maxOccurrences;
     if (nextMaxOccurrences !== null && nextMaxOccurrences !== undefined) {
       if (!Number.isSafeInteger(nextMaxOccurrences) || nextMaxOccurrences < 1)
@@ -442,16 +665,24 @@ export async function splitRecurrenceFromHereCore(
       .update(recurrenceRuleVersion)
       .set({ effectiveUntil: previousDay.toISOString().slice(0, 10) })
       .where(eq(recurrenceRuleVersion.id, ruleId));
-    await tx
-      .update(financialMovement)
-      .set({ status: 'canceled', updatedBy: userId, updatedAt: new Date() })
-      .where(
-        and(
-          eq(financialMovement.recurrenceRuleVersionId, ruleId),
-          eq(financialMovement.status, 'pending'),
-          gte(financialMovement.plannedDate, effectiveFrom),
-        ),
-      );
+    const futureOccurrences = await tx.query.financialMovement.findMany({
+      where: and(
+        eq(financialMovement.recurrenceRuleVersionId, ruleId),
+        eq(financialMovement.status, 'pending'),
+        gte(financialMovement.plannedDate, splitEffectiveFrom),
+      ),
+    });
+    for (const occurrence of futureOccurrences) {
+      const payments = await tx.query.financialPayment.findMany({
+        where: eq(financialPayment.movementId, occurrence.id),
+      });
+      if (payments.length > 0) {
+        throw new Error('Não é possível alterar uma série com pagamentos parciais futuros.');
+      }
+    }
+    for (const occurrence of futureOccurrences) {
+      await tx.delete(financialMovement).where(eq(financialMovement.id, occurrence.id));
+    }
     const [next] = await tx
       .insert(recurrenceRuleVersion)
       .values({
