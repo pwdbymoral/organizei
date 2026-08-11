@@ -55,13 +55,13 @@ export default async function Dashboard() {
         <AppNavigation />
 
         <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-          <article className="bg-primary rounded-3xl p-6 text-white shadow-sm sm:p-8">
-            <p className="text-sm text-white/85">Saldo atual</p>
+          <article className="bg-primary text-primary-foreground rounded-3xl p-6 shadow-sm sm:p-8">
+            <p className="text-primary-foreground/85 text-sm">Saldo atual</p>
             <p className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
               {fmtMoney(data.cashSummary.currentBalanceCents)}
             </p>
             {data.projection.firstNegativeDate && (
-              <p className="mt-5 rounded-2xl bg-white/10 p-3 text-sm">
+              <p className="bg-primary-foreground/10 mt-5 rounded-2xl p-3 text-sm">
                 O saldo pode ficar negativo em {fmtDate(data.projection.firstNegativeDate)}.{' '}
                 <Link className="font-semibold underline underline-offset-4" href="/app/projection">
                   Ver impacto
