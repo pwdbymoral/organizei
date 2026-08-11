@@ -29,7 +29,7 @@ export function ResponsiveFormSurface({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  trigger: ReactElement;
+  trigger?: ReactElement;
   title: string;
   description: string;
   children: ReactNode;
@@ -39,7 +39,7 @@ export function ResponsiveFormSurface({
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+        {trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
         <DrawerContent className="max-h-[92dvh]">
           <DrawerHeader>
             <DrawerTitle>{title}</DrawerTitle>
@@ -53,7 +53,7 @@ export function ResponsiveFormSurface({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

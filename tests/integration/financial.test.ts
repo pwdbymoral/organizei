@@ -19,6 +19,7 @@ let updateMovementCore: typeof import('../../apps/web/src/lib/financial-core').u
 let createRecurrenceCore: typeof import('../../apps/web/src/lib/financial-core').createRecurrenceCore;
 let materializeRecurrenceCore: typeof import('../../apps/web/src/lib/financial-core').materializeRecurrenceCore;
 let recordPaymentCore: typeof import('../../apps/web/src/lib/financial-core').recordPaymentCore;
+let undoRealizationCore: typeof import('../../apps/web/src/lib/financial-core').undoRealizationCore;
 let splitRecurrenceFromHereCore: typeof import('../../apps/web/src/lib/financial-core').splitRecurrenceFromHereCore;
 
 describe('Financial Domain Integration', () => {
@@ -59,6 +60,7 @@ describe('Financial Domain Integration', () => {
     createRecurrenceCore = actionsModule.createRecurrenceCore;
     materializeRecurrenceCore = actionsModule.materializeRecurrenceCore;
     recordPaymentCore = actionsModule.recordPaymentCore;
+    undoRealizationCore = actionsModule.undoRealizationCore;
     splitRecurrenceFromHereCore = actionsModule.splitRecurrenceFromHereCore;
 
     await execFileAsync('pnpm', ['db:migrate'], {
@@ -145,6 +147,38 @@ describe('Financial Domain Integration', () => {
     );
     expect(updated.status).toBe('realized');
     expect(updated.description).toBe('Salário corrigido');
+  });
+
+  it('undoes a realization, removes its payments and records an audit event', async () => {
+    const mov = await createMovementCore(
+      space1,
+      {
+        description: 'Realização acidental',
+        direction: 'expense',
+        expectedAmountCents: 2500,
+        plannedDate: '2025-10-15',
+        initialStatus: 'realized',
+      },
+      userA,
+    );
+
+    const undone = await undoRealizationCore(space1, mov.id, mov.version, userB);
+    expect(undone.status).toBe('pending');
+    expect(undone.realizedDate).toBeNull();
+    expect(undone.realizedAmountCents).toBeNull();
+    expect(
+      await db.query.financialPayment.findMany({
+        where: (table, { eq }) => eq(table.movementId, mov.id),
+      }),
+    ).toHaveLength(0);
+
+    const { financialAuditLog } = await import('../../packages/database/src/index');
+    const auditRows = await db.select().from(financialAuditLog);
+    expect(
+      auditRows.find(
+        (row) => row.movementId === mov.id && row.action === 'financial_movement.undo_realization',
+      ),
+    ).toBeTruthy();
   });
 
   it('prevents user C from accessing space 1', async () => {

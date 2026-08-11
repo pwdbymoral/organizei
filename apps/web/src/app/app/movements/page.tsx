@@ -3,12 +3,16 @@ import { eq } from 'drizzle-orm';
 import { familyMembership } from '@organizei/database';
 import { auth } from '../../../lib/auth';
 import { getDashboardData } from '../../../lib/dashboard-data';
-import { parseTimelineFilters, matchesTimelineFilters } from '../../../lib/financial-filters';
+import {
+  parseTimelineFilters,
+  matchesTimelineFilters,
+  resolveTimelinePeriod,
+} from '../../../lib/financial-filters';
 import { Badge } from '../../../components/ui/badge';
 import { Empty, EmptyDescription } from '../../../components/ui/empty';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { recordPayment, updateMovement } from '../../../actions/financial';
+import { recordPayment, undoRealization, updateMovement } from '../../../actions/financial';
 import { revalidatePath } from 'next/cache';
 import { FinancialMovementDialogs } from '../../../components/financial-movement-dialogs';
 import { FinancialPaymentForm } from '../../../components/financial-payment-form';
@@ -45,16 +49,23 @@ export default async function MovementsPage({
   const spaceId = membership.spaceId;
   const data = await getDashboardData(spaceId, session.user.id);
   if (!data.lastBalance) redirect('/onboarding');
-  const filters = parseTimelineFilters((await searchParams) ?? {});
-  const movements = data.normalizedMovements.filter((movement) =>
-    matchesTimelineFilters(movement, filters, data.today),
+  const params = (await searchParams) ?? {};
+  const filters = parseTimelineFilters(params);
+  const period = resolveTimelinePeriod(params, data.today);
+  const movements = data.normalizedMovements.filter(
+    (movement) =>
+      matchesTimelineFilters(movement, filters, data.today) &&
+      (!period.from || (movement.realizedDate ?? movement.plannedDate) >= period.from) &&
+      (!period.to || (movement.realizedDate ?? movement.plannedDate) <= period.to),
   );
   const hasFilters = Boolean(
     filters.query ||
       filters.status !== 'all' ||
       filters.direction !== 'all' ||
       filters.from ||
-      filters.to,
+      filters.to ||
+      period.mode !== 'month' ||
+      period.month !== data.today.slice(0, 7),
   );
   async function realize(formData: FormData) {
     'use server';
@@ -86,6 +97,17 @@ export default async function MovementsPage({
     );
     revalidatePath('/app/movements');
   }
+  async function undo(formData: FormData) {
+    'use server';
+    await undoRealization(
+      spaceId,
+      String(formData.get('movementId')),
+      Number(formData.get('version')),
+    );
+    revalidatePath('/app');
+    revalidatePath('/app/movements');
+  }
+  const monthHref = (month: string) => `/app/movements?month=${month}`;
   return (
     <main className="bg-background text-text min-h-screen pb-28 sm:pb-10">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-5 sm:px-8 sm:py-8">
@@ -96,13 +118,42 @@ export default async function MovementsPage({
         />
         <AppNavigation />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-text-muted text-sm">{movements.length} transações</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-text-muted text-sm">{movements.length} transações</span>
+            <span className="bg-muted text-text-muted rounded-full px-3 py-1 text-xs">
+              {period.label}
+            </span>
+          </div>
           <Button asChild className="w-full sm:w-auto">
             <Link href="/add">Nova transação</Link>
           </Button>
         </div>
+        <nav aria-label="Período das transações" className="flex flex-wrap items-center gap-2">
+          <Button
+            asChild
+            variant={
+              period.mode === 'month' && period.month === data.today.slice(0, 7)
+                ? 'secondary'
+                : 'outline'
+            }
+            size="sm"
+          >
+            <Link href={monthHref(data.today.slice(0, 7))}>Este mês</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href={monthHref(addMonths(data.today.slice(0, 7), -1))}>Mês anterior</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href={monthHref(addMonths(data.today.slice(0, 7), 1))}>Próximo mês</Link>
+          </Button>
+          <Button asChild variant={period.mode === 'all' ? 'secondary' : 'outline'} size="sm">
+            <Link href="/app/movements?view=all">Todas</Link>
+          </Button>
+        </nav>
         <ResponsiveFilters active={hasFilters}>
           <form method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {period.mode === 'month' && <input type="hidden" name="month" value={period.month} />}
+            {period.mode === 'all' && <input type="hidden" name="view" value="all" />}
             <label className="text-sm font-medium sm:col-span-2">
               Buscar descrição ou valor
               <Input
@@ -175,7 +226,7 @@ export default async function MovementsPage({
                   <div className="min-w-0">
                     <h2 className="truncate font-medium">{movement.description}</h2>
                     <p className="text-text-muted mt-1 text-sm">
-                      {fmtDate(movement.plannedDate)} ·{' '}
+                      {fmtDate(movement.realizedDate ?? movement.plannedDate)} ·{' '}
                       {movement.direction === 'income' ? 'Entrada' : 'Saída'}
                     </p>
                   </div>
@@ -210,7 +261,7 @@ export default async function MovementsPage({
                     </span>
                   </div>
                   {movement.status !== 'canceled' && (
-                    <div className="sm:justify-self-end">
+                    <div className="flex justify-end sm:justify-self-end">
                       <MovementActionSurface
                         title={movement.description}
                         description={
@@ -245,6 +296,18 @@ export default async function MovementsPage({
                             </form>
                           </>
                         )}
+                        {movement.status === 'realized' && (
+                          <form action={undo}>
+                            <input type="hidden" name="movementId" value={movement.id} />
+                            <input type="hidden" name="version" value={movement.version} />
+                            <ConfirmSubmitButton
+                              message="Desfazer a realização? A transação voltará a pendente e deixará de impactar o saldo atual."
+                              className="text-destructive border-border min-h-10 w-full rounded-md border px-3 text-sm"
+                            >
+                              Desfazer realização
+                            </ConfirmSubmitButton>
+                          </form>
+                        )}
                         <FinancialMovementDialogs
                           spaceId={spaceId}
                           movement={{
@@ -259,6 +322,8 @@ export default async function MovementsPage({
                             direction: movement.direction,
                             expectedAmountCents: movement.expectedAmountCents,
                             plannedDate: movement.plannedDate,
+                            realizedDate: movement.realizedDate,
+                            status: movement.status,
                           }}
                         />
                         {movement.status === 'pending' && (
@@ -289,4 +354,10 @@ export default async function MovementsPage({
 async function dbMembership(userId: string) {
   const { db } = await import('@organizei/database');
   return db.query.familyMembership.findFirst({ where: eq(familyMembership.userId, userId) });
+}
+
+function addMonths(month: string, amount: number) {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const date = new Date(Date.UTC(year!, monthNumber! - 1 + amount, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }

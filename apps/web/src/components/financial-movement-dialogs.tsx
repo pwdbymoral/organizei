@@ -21,6 +21,8 @@ type MovementDialogProps = {
     direction: 'income' | 'expense';
     expectedAmountCents: number;
     plannedDate: string;
+    realizedDate: string | null;
+    status: 'pending' | 'realized';
   };
 };
 
@@ -40,8 +42,10 @@ function FormFeedback({
 }
 
 export function FinancialMovementDialogs({ spaceId, movement }: MovementDialogProps) {
+  const [editScopeOpen, setEditScopeOpen] = useState(false);
   const [occurrenceOpen, setOccurrenceOpen] = useState(false);
   const [seriesOpen, setSeriesOpen] = useState(false);
+  const [seriesScope, setSeriesScope] = useState<'future' | 'all'>('future');
   const [occurrenceState, occurrenceAction, occurrencePending] = useActionState(
     updateOccurrenceFormAction,
     initialFinancialFormState,
@@ -61,13 +65,61 @@ export function FinancialMovementDialogs({ spaceId, movement }: MovementDialogPr
   return (
     <>
       <ResponsiveFormSurface
-        open={occurrenceOpen}
-        onOpenChange={setOccurrenceOpen}
+        open={editScopeOpen}
+        onOpenChange={setEditScopeOpen}
         trigger={
           <Button type="button" variant="outline" className="w-full">
-            Editar esta
+            Editar
           </Button>
         }
+        title="O que deseja editar?"
+        description="Escolha quais ocorrências devem receber esta alteração."
+      >
+        <div className="grid gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 w-full justify-start"
+            onClick={() => {
+              setEditScopeOpen(false);
+              setOccurrenceOpen(true);
+            }}
+          >
+            Somente esta transação
+          </Button>
+          {movement.recurrenceRuleVersionId && (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 w-full justify-start"
+              onClick={() => {
+                setSeriesScope('future');
+                setEditScopeOpen(false);
+                setSeriesOpen(true);
+              }}
+            >
+              Esta e as próximas
+            </Button>
+          )}
+          {movement.recurrenceRuleVersionId && (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 w-full justify-start"
+              onClick={() => {
+                setSeriesScope('all');
+                setEditScopeOpen(false);
+                setSeriesOpen(true);
+              }}
+            >
+              Todas as futuras ocorrências
+            </Button>
+          )}
+        </div>
+      </ResponsiveFormSurface>
+      <ResponsiveFormSurface
+        open={occurrenceOpen}
+        onOpenChange={setOccurrenceOpen}
         title="Editar transação"
         description="Ajuste os detalhes desta transação."
       >
@@ -92,18 +144,14 @@ export function FinancialMovementDialogs({ spaceId, movement }: MovementDialogPr
         <ResponsiveFormSurface
           open={seriesOpen}
           onOpenChange={setSeriesOpen}
-          trigger={
-            <Button type="button" variant="outline" className="w-full">
-              Editar próximas
-            </Button>
-          }
-          title="Editar esta e as próximas"
-          description="Ocorrências anteriores permanecem intactas."
+          title={seriesScope === 'all' ? 'Editar todas as futuras' : 'Editar esta e as próximas'}
+          description="Ocorrências já realizadas permanecem intactas."
         >
           <form action={seriesAction} className="grid gap-5">
             <input type="hidden" name="spaceId" value={spaceId} />
             <input type="hidden" name="ruleId" value={movement.recurrenceRuleVersionId} />
             <input type="hidden" name="effectiveFrom" value={movement.plannedDate} />
+            <input type="hidden" name="scope" value={seriesScope} />
             <MovementFields movement={movement} includeCadence />
             <Field>
               <FieldLabel htmlFor={'end-' + movement.id}>Data final (opcional)</FieldLabel>
@@ -193,12 +241,14 @@ function MovementFields({
         </Field>
       ) : (
         <Field>
-          <FieldLabel htmlFor={'date-' + movement.id}>Data planejada</FieldLabel>
+          <FieldLabel htmlFor={'date-' + movement.id}>
+            {movement.status === 'realized' ? 'Data em que aconteceu' : 'Data planejada'}
+          </FieldLabel>
           <Input
             id={'date-' + movement.id}
-            name="plannedDate"
+            name={movement.status === 'realized' ? 'realizedDate' : 'plannedDate'}
             type="date"
-            defaultValue={movement.plannedDate}
+            defaultValue={movement.realizedDate ?? movement.plannedDate}
             required
           />
         </Field>

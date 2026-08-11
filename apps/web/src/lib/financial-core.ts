@@ -462,6 +462,84 @@ export async function splitRecurrenceFromHereCore(
   });
 }
 
+export async function updateRecurrenceCore(
+  spaceId: string,
+  ruleId: string,
+  changes: Partial<
+    Pick<
+      RecurrenceInput,
+      | 'description'
+      | 'direction'
+      | 'expectedAmountCents'
+      | 'cadence'
+      | 'effectiveUntil'
+      | 'maxOccurrences'
+    >
+  >,
+  userId: string,
+) {
+  await verifyMembership(spaceId, userId);
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${ruleId}))`);
+    const current = await tx.query.recurrenceRuleVersion.findFirst({
+      where: eq(recurrenceRuleVersion.id, ruleId),
+    });
+    if (!current) throw new Error('Not found');
+    const input = validateMovementInput({
+      description: changes.description ?? current.description,
+      direction: changes.direction ?? current.direction,
+      expectedAmountCents: changes.expectedAmountCents ?? current.expectedAmountCents,
+      plannedDate: current.effectiveFrom,
+    });
+    const effectiveUntil =
+      changes.effectiveUntil === undefined ? current.effectiveUntil : changes.effectiveUntil;
+    if (effectiveUntil) assertCivilDate(effectiveUntil, 'Data final');
+    const maxOccurrences =
+      changes.maxOccurrences === undefined ? current.maxOccurrences : changes.maxOccurrences;
+    if (
+      maxOccurrences !== null &&
+      maxOccurrences !== undefined &&
+      (!Number.isSafeInteger(maxOccurrences) || maxOccurrences < 1)
+    ) {
+      throw new Error('Quantidade de ocorrências inválida.');
+    }
+    await tx
+      .update(recurrenceRuleVersion)
+      .set({
+        description: input.description,
+        direction: input.direction,
+        expectedAmountCents: input.expectedAmountCents,
+        cadence: changes.cadence ?? current.cadence,
+        effectiveUntil,
+        maxOccurrences,
+      })
+      .where(eq(recurrenceRuleVersion.id, ruleId));
+    await tx
+      .update(financialMovement)
+      .set({
+        description: input.description,
+        direction: input.direction,
+        expectedAmountCents: input.expectedAmountCents,
+        updatedBy: userId,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(financialMovement.recurrenceRuleVersionId, ruleId),
+          eq(financialMovement.status, 'pending'),
+        ),
+      );
+    await tx.insert(financialAuditLog).values({
+      id: randomUUID(),
+      spaceId,
+      authorId: userId,
+      action: 'recurrence.update',
+      changes: JSON.stringify({ ruleId, scope: 'future', effectiveUntil, maxOccurrences }),
+    });
+    return current;
+  });
+}
+
 export async function recordPaymentCore(
   spaceId: string,
   movementId: string,
@@ -512,6 +590,55 @@ export async function recordPaymentCore(
       authorId: userId,
       action: 'financial_payment.create',
       changes: JSON.stringify({ amountCents, paidDate }),
+    });
+    return updated;
+  });
+}
+
+export async function undoRealizationCore(
+  spaceId: string,
+  movementId: string,
+  version: number,
+  userId: string,
+) {
+  if (!Number.isSafeInteger(version) || version < 1) throw new Error('Versão inválida.');
+  await verifyMembership(spaceId, userId);
+
+  return db.transaction(async (tx) => {
+    const existing = await tx.query.financialMovement.findFirst({
+      where: and(eq(financialMovement.id, movementId), eq(financialMovement.spaceId, spaceId)),
+    });
+    if (!existing) throw new Error('Not found');
+    if (existing.version !== version) throw new Error('Conflict');
+    if (existing.status !== 'realized') throw new Error('Movimentação não está realizada.');
+
+    await tx.delete(financialPayment).where(eq(financialPayment.movementId, movementId));
+    const [updated] = await tx
+      .update(financialMovement)
+      .set({
+        status: 'pending',
+        realizedAmountCents: null,
+        realizedDate: null,
+        updatedBy: userId,
+        updatedAt: new Date(),
+        version: existing.version + 1,
+      })
+      .where(
+        and(
+          eq(financialMovement.id, movementId),
+          eq(financialMovement.spaceId, spaceId),
+          eq(financialMovement.version, version),
+        ),
+      )
+      .returning();
+    if (!updated) throw new Error('Conflict');
+    await tx.insert(financialAuditLog).values({
+      id: randomUUID(),
+      spaceId,
+      movementId,
+      authorId: userId,
+      action: 'financial_movement.undo_realization',
+      changes: JSON.stringify({ previousVersion: version, version: updated.version }),
     });
     return updated;
   });
@@ -573,16 +700,22 @@ export async function updateMovementCore(
     input.realizedDate = null;
   } else if (input.status !== undefined && input.status !== 'pending') {
     throw new Error('Estado inválido.');
-  } else if (input.realizedAmountCents !== undefined || input.realizedDate !== undefined) {
+  } else if (
+    existing.status !== 'realized' &&
+    (input.realizedAmountCents !== undefined || input.realizedDate !== undefined)
+  ) {
     throw new Error('Valores realizados exigem uma movimentação realizada.');
   }
 
   if (existing.status === 'realized') {
     if (input.status !== undefined) throw new Error('Uma realizada não pode mudar de situação.');
-    if (input.plannedDate && input.plannedDate > toCivilDate(new Date())) {
-      throw new Error('Uma transação realizada não pode ter data futura.');
+    if (input.realizedDate !== undefined) {
+      assertCivilDate(input.realizedDate ?? '', 'Data realizada');
+      if (input.realizedDate && input.realizedDate > toCivilDate(new Date())) {
+        throw new Error('Uma transação realizada não pode ter data futura.');
+      }
     }
-    input.realizedDate = input.plannedDate ?? existing.realizedDate;
+    input.realizedDate = input.realizedDate ?? existing.realizedDate;
     if (input.expectedAmountCents !== undefined) {
       const payments = await db.query.financialPayment.findMany({
         where: eq(financialPayment.movementId, movementId),
@@ -610,10 +743,10 @@ export async function updateMovementCore(
       .returning();
     if (!updated) throw new Error('Conflict');
 
-    if (existing.status === 'realized' && input.plannedDate) {
+    if (existing.status === 'realized' && input.realizedDate) {
       await tx
         .update(financialPayment)
-        .set({ paidDate: input.plannedDate })
+        .set({ paidDate: input.realizedDate })
         .where(eq(financialPayment.movementId, movementId));
     }
 
