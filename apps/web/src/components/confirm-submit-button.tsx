@@ -16,10 +16,14 @@ export function ConfirmSubmitButton({
   children,
   message,
   className,
+  title = 'Cancelar transação?',
+  confirmLabel = 'Cancelar transação',
 }: {
   children: React.ReactNode;
   message: string;
   className?: string;
+  title?: string;
+  confirmLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -39,13 +43,13 @@ export function ConfirmSubmitButton({
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancelar transação?</AlertDialogTitle>
+            <AlertDialogTitle>{title}</AlertDialogTitle>
             <AlertDialogDescription>{message}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Voltar</AlertDialogCancel>
             <AlertDialogAction onClick={() => formRef.current?.requestSubmit()}>
-              Cancelar transação
+              {confirmLabel}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

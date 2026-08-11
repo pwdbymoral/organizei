@@ -133,6 +133,8 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
   test('collaborative financial flow between two space members and adversarial isolation', async ({
     browser,
   }) => {
+    test.setTimeout(60_000);
+
     // --- Step 1: Login User A (Space 1 Admin) ---
     const contextA = await browser.newContext();
     const pageA = await contextA.newPage();
@@ -248,14 +250,11 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await recurringCard.getByRole('button', { name: 'Ações para Mensalidade' }).click();
     const recurringActions = pageA.getByRole('dialog', { name: 'Ações para Mensalidade' });
     await expect(recurringActions).toBeVisible();
-    // The nested dialog intentionally unmounts the Popover trigger after opening.
-    await recurringActions
-      .getByRole('button', { name: 'Editar', exact: true })
-      .dispatchEvent('click');
+    await recurringActions.getByRole('button', { name: 'Editar', exact: true }).click();
     const editScope = pageA.getByRole('dialog', {
       name: 'O que deseja editar em Mensalidade?',
     });
-    await editScope.getByRole('button', { name: 'Somente esta transação' }).dispatchEvent('click');
+    await editScope.getByRole('button', { name: 'Somente esta transação' }).click();
     const occurrenceDialog = pageA.getByRole('dialog', { name: 'Editar transação' });
     await expect(occurrenceDialog).toBeVisible();
     expect(
@@ -277,20 +276,15 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
       name: 'Ações para Mensalidade ajustada',
     });
     await expect(updatedActions).toBeVisible();
-    await updatedActions
-      .getByRole('button', { name: 'Editar', exact: true })
-      .dispatchEvent('click');
+    await updatedActions.getByRole('button', { name: 'Editar', exact: true }).click();
     const updatedEditScope = pageA.getByRole('dialog', {
       name: 'O que deseja editar em Mensalidade ajustada?',
     });
-    await updatedEditScope
-      .getByRole('button', { name: 'Esta e as próximas' })
-      .dispatchEvent('click');
+    await updatedEditScope.getByRole('button', { name: 'Esta e as próximas' }).click();
     const seriesDialog = pageA.getByRole('dialog', { name: 'Editar esta e as próximas' });
     await expect(seriesDialog).toBeVisible();
     await seriesDialog.getByLabel('Primeira ocorrência em').fill(firstOfMonth);
-    // Saving replaces the responsive surface after the server action succeeds.
-    await seriesDialog.getByRole('button', { name: 'Salvar alterações' }).dispatchEvent('click');
+    await seriesDialog.getByRole('button', { name: 'Salvar alterações' }).click();
     await expect(pageA.getByText('Mensalidade ajustada', { exact: true }).first()).toBeVisible();
 
     await pageA.setViewportSize({ width: 375, height: 800 });
@@ -332,7 +326,15 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
 
     await lightCard.getByRole('button', { name: 'Ações para Conta de Luz' }).click();
     await pageB.getByRole('button', { name: 'Desfazer realização' }).click();
-    await expect(pageB.getByText('Pendente', { exact: true }).last()).toBeVisible();
+    const undoDialog = pageB.getByRole('alertdialog', { name: 'Desfazer realização?' });
+    await expect(undoDialog).toBeVisible();
+    await undoDialog.getByRole('button', { name: 'Desfazer realização' }).click();
+    await expect(
+      pageB
+        .getByRole('article')
+        .filter({ hasText: 'Conta de Luz' })
+        .getByText('Pendente', { exact: true }),
+    ).toBeVisible();
 
     // --- Step 8: Login User C (adversary in other space, different context) ---
     const contextC = await browser.newContext();

@@ -14,13 +14,12 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { recordPayment, undoRealization, updateMovement } from '../../../actions/financial';
 import { revalidatePath } from 'next/cache';
-import { FinancialMovementDialogs } from '../../../components/financial-movement-dialogs';
+import { FinancialMovementActions } from '../../../components/financial-movement-actions';
 import { FinancialPaymentForm } from '../../../components/financial-payment-form';
 import { AppNavigation } from '../../../components/app-navigation';
 import { AppPageHeader } from '../../../components/app-page-header';
 import { remainingAmountCents } from '@organizei/domain';
 import { ConfirmSubmitButton } from '../../../components/confirm-submit-button';
-import { MovementActionSurface } from '../../../components/movement-action-surface';
 import { ResponsiveFilters } from '../../../components/responsive-filters';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -262,83 +261,85 @@ export default async function MovementsPage({
                   </div>
                   {movement.status !== 'canceled' && (
                     <div className="flex justify-end sm:justify-self-end">
-                      <MovementActionSurface
+                      <FinancialMovementActions
                         title={movement.description}
                         description={
                           (movement.direction === 'income' ? 'Entrada' : 'Saída') +
                           ' de ' +
                           fmtMoney(movement.expectedAmountCents)
                         }
-                      >
-                        {movement.status === 'pending' && (
-                          <>
-                            <FinancialPaymentForm
-                              spaceId={spaceId}
-                              movementId={movement.id}
-                              version={movement.version}
-                              description={movement.description}
-                              paidDate={data.today}
-                              remainingCents={remainingAmountCents(
-                                movement.expectedAmountCents,
-                                data.payments.filter(
-                                  (payment) => payment.movementId === movement.id,
-                                ),
-                              )}
-                            />
-                            <form action={realize} className="grid gap-2">
+                        spaceId={spaceId}
+                        movement={{
+                          id: movement.id,
+                          recurrenceRuleVersionId: movement.recurrenceRuleVersionId,
+                          cadence: movement.recurrenceRuleVersionId
+                            ? (data.recurrenceById.get(movement.recurrenceRuleVersionId)?.cadence ??
+                              'monthly')
+                            : null,
+                          version: movement.version,
+                          description: movement.description,
+                          direction: movement.direction,
+                          expectedAmountCents: movement.expectedAmountCents,
+                          plannedDate: movement.plannedDate,
+                          realizedDate: movement.realizedDate,
+                          status: movement.status,
+                        }}
+                        beforeEdit={
+                          movement.status === 'pending' ? (
+                            <>
+                              <FinancialPaymentForm
+                                spaceId={spaceId}
+                                movementId={movement.id}
+                                version={movement.version}
+                                description={movement.description}
+                                paidDate={data.today}
+                                remainingCents={remainingAmountCents(
+                                  movement.expectedAmountCents,
+                                  data.payments.filter(
+                                    (payment) => payment.movementId === movement.id,
+                                  ),
+                                )}
+                              />
+                              <form action={realize} className="grid gap-2">
+                                <input type="hidden" name="movementId" value={movement.id} />
+                                <input type="hidden" name="version" value={movement.version} />
+                                <Button type="submit" className="w-full">
+                                  {movement.direction === 'income'
+                                    ? 'Registrar entrada'
+                                    : 'Registrar pagamento integral'}
+                                </Button>
+                              </form>
+                            </>
+                          ) : movement.status === 'realized' ? (
+                            <form action={undo}>
                               <input type="hidden" name="movementId" value={movement.id} />
                               <input type="hidden" name="version" value={movement.version} />
-                              <Button type="submit" className="w-full">
-                                {movement.direction === 'income'
-                                  ? 'Registrar entrada'
-                                  : 'Registrar pagamento integral'}
-                              </Button>
+                              <ConfirmSubmitButton
+                                title="Desfazer realização?"
+                                confirmLabel="Desfazer realização"
+                                message="Desfazer a realização? A transação voltará a pendente e deixará de impactar o saldo atual."
+                                className="text-destructive border-border min-h-10 w-full rounded-md border px-3 text-sm"
+                              >
+                                Desfazer realização
+                              </ConfirmSubmitButton>
                             </form>
-                          </>
-                        )}
-                        {movement.status === 'realized' && (
-                          <form action={undo}>
-                            <input type="hidden" name="movementId" value={movement.id} />
-                            <input type="hidden" name="version" value={movement.version} />
-                            <ConfirmSubmitButton
-                              message="Desfazer a realização? A transação voltará a pendente e deixará de impactar o saldo atual."
-                              className="text-destructive border-border min-h-10 w-full rounded-md border px-3 text-sm"
-                            >
-                              Desfazer realização
-                            </ConfirmSubmitButton>
-                          </form>
-                        )}
-                        <FinancialMovementDialogs
-                          spaceId={spaceId}
-                          movement={{
-                            id: movement.id,
-                            recurrenceRuleVersionId: movement.recurrenceRuleVersionId,
-                            cadence: movement.recurrenceRuleVersionId
-                              ? (data.recurrenceById.get(movement.recurrenceRuleVersionId)
-                                  ?.cadence ?? 'monthly')
-                              : null,
-                            version: movement.version,
-                            description: movement.description,
-                            direction: movement.direction,
-                            expectedAmountCents: movement.expectedAmountCents,
-                            plannedDate: movement.plannedDate,
-                            realizedDate: movement.realizedDate,
-                            status: movement.status,
-                          }}
-                        />
-                        {movement.status === 'pending' && (
-                          <form action={cancel}>
-                            <input type="hidden" name="movementId" value={movement.id} />
-                            <input type="hidden" name="version" value={movement.version} />
-                            <ConfirmSubmitButton
-                              message="Cancelar esta transação? Ela deixará de influenciar as previsões futuras."
-                              className="text-destructive border-border min-h-10 w-full rounded-md border px-3 text-sm"
-                            >
-                              Cancelar
-                            </ConfirmSubmitButton>
-                          </form>
-                        )}
-                      </MovementActionSurface>
+                          ) : null
+                        }
+                        afterEdit={
+                          movement.status === 'pending' ? (
+                            <form action={cancel}>
+                              <input type="hidden" name="movementId" value={movement.id} />
+                              <input type="hidden" name="version" value={movement.version} />
+                              <ConfirmSubmitButton
+                                message="Cancelar esta transação? Ela deixará de influenciar as previsões futuras."
+                                className="text-destructive border-border min-h-10 w-full rounded-md border px-3 text-sm"
+                              >
+                                Cancelar
+                              </ConfirmSubmitButton>
+                            </form>
+                          ) : null
+                        }
+                      />
                     </div>
                   )}
                 </article>

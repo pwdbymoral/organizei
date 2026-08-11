@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 const initialFinancialFormState = { status: 'idle' as const, message: '' };
 
-type MovementDialogProps = {
+export type MovementDialogProps = {
   spaceId: string;
   movement: {
     id: string;
@@ -25,6 +25,8 @@ type MovementDialogProps = {
     status: 'pending' | 'realized';
   };
 };
+
+export type FinancialMovementEditSurface = 'scope' | 'occurrence' | 'series' | null;
 
 function FormFeedback({
   message,
@@ -41,8 +43,15 @@ function FormFeedback({
   );
 }
 
-export function FinancialMovementDialogs({ spaceId, movement }: MovementDialogProps) {
-  const [surface, setSurface] = useState<'scope' | 'occurrence' | 'series' | null>(null);
+export function FinancialMovementDialogs({
+  spaceId,
+  movement,
+  surface,
+  onSurfaceChange,
+}: MovementDialogProps & {
+  surface: FinancialMovementEditSurface;
+  onSurfaceChange: (surface: FinancialMovementEditSurface) => void;
+}) {
   const [seriesScope, setSeriesScope] = useState<'future' | 'all'>('future');
   const [occurrenceState, occurrenceAction, occurrencePending] = useActionState(
     updateOccurrenceFormAction,
@@ -55,9 +64,9 @@ export function FinancialMovementDialogs({ spaceId, movement }: MovementDialogPr
 
   useEffect(() => {
     if (occurrenceState.status === 'success' || seriesState.status === 'success') {
-      setSurface(null);
+      onSurfaceChange(null);
     }
-  }, [occurrenceState.status, seriesState.status]);
+  }, [occurrenceState.status, onSurfaceChange, seriesState.status]);
 
   const isOpen = surface !== null;
   const title =
@@ -78,17 +87,7 @@ export function FinancialMovementDialogs({ spaceId, movement }: MovementDialogPr
   return (
     <ResponsiveFormSurface
       open={isOpen}
-      onOpenChange={(open) => setSurface(open ? 'scope' : null)}
-      trigger={
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          onPointerDown={(event) => event.preventDefault()}
-        >
-          Editar
-        </Button>
-      }
+      onOpenChange={(open) => onSurfaceChange(open ? 'scope' : null)}
       title={title}
       description={description}
     >
@@ -99,7 +98,7 @@ export function FinancialMovementDialogs({ spaceId, movement }: MovementDialogPr
             variant="outline"
             className="min-h-11 w-full justify-start"
             onClick={() => {
-              setSurface('occurrence');
+              onSurfaceChange('occurrence');
             }}
           >
             Somente esta transação
@@ -111,7 +110,7 @@ export function FinancialMovementDialogs({ spaceId, movement }: MovementDialogPr
               className="min-h-11 w-full justify-start"
               onClick={() => {
                 setSeriesScope('future');
-                setSurface('series');
+                onSurfaceChange('series');
               }}
             >
               Esta e as próximas
@@ -124,7 +123,7 @@ export function FinancialMovementDialogs({ spaceId, movement }: MovementDialogPr
               className="min-h-11 w-full justify-start"
               onClick={() => {
                 setSeriesScope('all');
-                setSurface('series');
+                onSurfaceChange('series');
               }}
             >
               Todas as futuras ocorrências
@@ -140,7 +139,7 @@ export function FinancialMovementDialogs({ spaceId, movement }: MovementDialogPr
           <MovementFields movement={movement} />
           <FormFeedback {...occurrenceState} />
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" onClick={() => setSurface('scope')}>
+            <Button type="button" variant="outline" onClick={() => onSurfaceChange('scope')}>
               Voltar
             </Button>
             <Button type="submit" disabled={occurrencePending}>
@@ -174,7 +173,7 @@ export function FinancialMovementDialogs({ spaceId, movement }: MovementDialogPr
           </Field>
           <FormFeedback {...seriesState} />
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" onClick={() => setSurface('scope')}>
+            <Button type="button" variant="outline" onClick={() => onSurfaceChange('scope')}>
               Voltar
             </Button>
             <Button type="submit" disabled={seriesPending}>
