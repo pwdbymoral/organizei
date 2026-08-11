@@ -83,6 +83,7 @@ export interface FinancialPayment {
   movementId: string;
   amountCents: number;
   paidDate: string;
+  createdAt?: Date;
 }
 
 function addSignedAmount(current: number, direction: Direction, amount: number) {
@@ -114,7 +115,11 @@ export function calculateCurrentBalanceCents(
     const movementPayments = paymentsByMovement.get(movement.id) ?? [];
     if (movementPayments.length > 0) {
       for (const payment of movementPayments) {
-        if (payment.paidDate > checkpointCivilDate && payment.paidDate <= currentCivilDate) {
+        const afterCheckpoint =
+          payment.paidDate > checkpointCivilDate ||
+          (payment.paidDate === checkpointCivilDate &&
+            Boolean(payment.createdAt && payment.createdAt > checkpoint.confirmedAt));
+        if (afterCheckpoint && payment.paidDate <= currentCivilDate) {
           current = addSignedAmount(current, movement.direction, payment.amountCents);
         }
       }

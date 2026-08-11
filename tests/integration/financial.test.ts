@@ -116,6 +116,37 @@ describe('Financial Domain Integration', () => {
     expect(mov.createdBy).toBe(userA);
   });
 
+  it('creates an already-realized transaction with its payment atomically', async () => {
+    const mov = await createMovementCore(
+      space1,
+      {
+        description: 'Salário recebido',
+        direction: 'income',
+        expectedAmountCents: 174300,
+        plannedDate: '2025-10-11',
+        initialStatus: 'realized',
+      },
+      userA,
+    );
+    expect(mov.status).toBe('realized');
+    expect(mov.realizedAmountCents).toBe(174300);
+    const payments = await db.query.financialPayment.findMany({
+      where: (table, { eq }) => eq(table.movementId, mov.id),
+    });
+    expect(payments).toHaveLength(1);
+    expect(payments[0]?.amountCents).toBe(174300);
+
+    const updated = await updateMovementCore(
+      space1,
+      mov.id,
+      { description: 'Salário corrigido', expectedAmountCents: 174300 },
+      mov.version,
+      userA,
+    );
+    expect(updated.status).toBe('realized');
+    expect(updated.description).toBe('Salário corrigido');
+  });
+
   it('prevents user C from accessing space 1', async () => {
     await expect(confirmBalanceCore(space1, 20000, userC)).rejects.toThrow('Forbidden');
     await expect(

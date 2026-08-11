@@ -144,6 +144,64 @@ describe('DailyProjectionEngine invariants', () => {
     ).toBe(9_600);
   });
 
+  it('includes a same-day payment only when it was registered after the checkpoint', () => {
+    const checkpoint: ConfirmedBalance = {
+      spaceId: 'space-1',
+      amountCents: 0,
+      confirmedAt: new Date('2025-01-10T15:00:00Z'),
+      authorId: 'user-1',
+      createdAt: new Date('2025-01-10T15:00:00Z'),
+    };
+    const movement = {
+      id: 'salary',
+      spaceId: 'space-1',
+      description: 'Salário',
+      direction: 'income' as const,
+      expectedAmountCents: 174_300,
+      plannedDate: '2025-01-10',
+      status: 'realized' as const,
+      realizedAmountCents: 174_300,
+      realizedDate: '2025-01-10',
+      createdBy: 'user-1',
+      updatedBy: 'user-1',
+      createdAt: new Date('2025-01-10T16:00:00Z'),
+      updatedAt: new Date('2025-01-10T16:00:00Z'),
+      version: 1,
+    };
+    expect(
+      calculateCurrentBalanceCents(
+        checkpoint,
+        '2025-01-10',
+        [movement],
+        [
+          {
+            id: 'payment-after',
+            movementId: 'salary',
+            amountCents: 174_300,
+            paidDate: '2025-01-10',
+            createdAt: new Date('2025-01-10T16:00:00Z'),
+          },
+        ],
+      ),
+    ).toBe(174_300);
+    expect(
+      calculateCurrentBalanceCents(
+        checkpoint,
+        '2025-01-10',
+        [movement],
+        [
+          {
+            id: 'payment-before',
+            movementId: 'salary',
+            amountCents: 174_300,
+            paidDate: '2025-01-10',
+            createdAt: new Date('2025-01-10T14:00:00Z'),
+          },
+        ],
+      ),
+    ).toBe(0);
+  });
+
   it('calculates conservative free cash through the next income and falls back to month end', () => {
     const checkpoint: ConfirmedBalance = {
       spaceId: 'space-1',

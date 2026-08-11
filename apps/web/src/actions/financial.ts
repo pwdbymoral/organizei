@@ -8,6 +8,7 @@ import {
   type MovementUpdate,
   type RecurrenceInput,
   confirmBalanceCore,
+  createBalanceAdjustmentCore,
   createMovementCore,
   createRecurrenceCore,
   materializeRecurrenceCore,
@@ -28,6 +29,15 @@ export async function requireAuth() {
 export async function confirmBalance(spaceId: string, amountCents: number) {
   const user = await requireAuth();
   return confirmBalanceCore(spaceId, amountCents, user.id);
+}
+
+export async function createBalanceAdjustment(
+  spaceId: string,
+  targetAmountCents: number,
+  today: string,
+) {
+  const user = await requireAuth();
+  return createBalanceAdjustmentCore(spaceId, targetAmountCents, today, user.id);
 }
 
 export async function createMovement(spaceId: string, data: MovementInput) {
@@ -93,6 +103,8 @@ function userFacingError(error: unknown): FinancialFormState {
     'Data do pagamento não pode ser futura.',
     'Descrição inválida.',
     'Valor previsto deve ser um valor positivo em centavos.',
+    'Uma transação realizada não pode ter data futura.',
+    'O valor realizado deve corresponder ao total pago.',
   ];
   return {
     status: 'error',
@@ -132,6 +144,7 @@ export async function updateOccurrenceFormAction(
       Number(formData.get('version')),
     );
     revalidatePath('/app');
+    revalidatePath('/app/movements');
     return { status: 'success', message: 'Ocorrência atualizada.' };
   } catch (error) {
     return userFacingError(error);
@@ -170,6 +183,7 @@ export async function splitRecurrenceFormAction(
       horizon.toISOString().slice(0, 10),
     );
     revalidatePath('/app');
+    revalidatePath('/app/movements');
     return { status: 'success', message: 'Próximas ocorrências atualizadas.' };
   } catch (error) {
     return userFacingError(error);
@@ -189,6 +203,7 @@ export async function recordPaymentFormAction(
       Number(formData.get('version')),
     );
     revalidatePath('/app');
+    revalidatePath('/app/movements');
     return { status: 'success', message: 'Pagamento registrado.' };
   } catch (error) {
     return userFacingError(error);
@@ -208,6 +223,7 @@ export async function createFinancialMovementFormAction(
       direction: String(formData.get('direction')) as MovementInput['direction'],
       expectedAmountCents: readMoneyCents(formData.get('amount')),
       plannedDate,
+      initialStatus: String(formData.get('initialStatus')) === 'realized' ? 'realized' : 'pending',
     };
     if (cadence === 'once') {
       await createMovement(spaceId, movement);
