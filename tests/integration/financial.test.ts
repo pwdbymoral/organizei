@@ -387,7 +387,8 @@ describe('Financial Domain Integration', () => {
     expect(
       updated
         .filter((movement) => movement.recurrenceRuleVersionId === next.id)
-        .map((movement) => movement.plannedDate),
+        .map((movement) => movement.plannedDate)
+        .sort(),
     ).toEqual(['2025-08-05', '2025-09-05', '2025-10-05']);
   });
 });
