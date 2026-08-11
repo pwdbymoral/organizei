@@ -295,11 +295,12 @@ describe('Financial Domain Integration', () => {
       space1,
       occurrence.id,
       600,
-      '2025-01-02',
+      '2025-01-01',
       partial.version,
       userB,
     );
     expect(realized.status).toBe('realized');
+    expect(realized.realizedDate).toBe('2025-01-01');
     await expect(
       recordPaymentCore(space1, occurrence.id, 1, '2025-01-03', realized.version, userA),
     ).rejects.toThrow();
