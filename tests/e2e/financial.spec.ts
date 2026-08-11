@@ -307,7 +307,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     });
     await expect(pageC.getByText('R$ 0,00').first()).toBeVisible();
     await pageC.getByRole('link', { name: 'Transações', exact: true }).click();
-    await expect(pageC.getByText('Nenhuma movimentação encontrada.')).toBeVisible();
+    await expect(pageC.getByText('Nenhuma transação encontrada.')).toBeVisible();
 
     // Verify User C cannot see Space 1 transactions
     await expect(pageC.getByText('Salário Mensal')).not.toBeVisible();
