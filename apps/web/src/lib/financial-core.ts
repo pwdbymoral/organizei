@@ -42,6 +42,20 @@ export type RecurrenceInput = MovementInput & {
   maxOccurrences?: number | null;
 };
 
+export type RecurrenceChanges = Partial<
+  Pick<
+    RecurrenceInput,
+    | 'description'
+    | 'direction'
+    | 'expectedAmountCents'
+    | 'cadence'
+    | 'effectiveUntil'
+    | 'maxOccurrences'
+  >
+> & {
+  firstOccurrenceDate?: string;
+};
+
 function assertCivilDate(value: string, field: string) {
   if (!CIVIL_DATE.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
     throw new Error(`${field} inválida.`);
@@ -355,20 +369,12 @@ export async function splitRecurrenceFromHereCore(
   spaceId: string,
   ruleId: string,
   effectiveFrom: string,
-  changes: Partial<
-    Pick<
-      RecurrenceInput,
-      | 'description'
-      | 'direction'
-      | 'expectedAmountCents'
-      | 'cadence'
-      | 'effectiveUntil'
-      | 'maxOccurrences'
-    >
-  >,
+  changes: RecurrenceChanges,
   userId: string,
 ) {
   assertCivilDate(effectiveFrom, 'Data da exceção');
+  const firstOccurrenceDate = changes.firstOccurrenceDate ?? effectiveFrom;
+  assertCivilDate(firstOccurrenceDate, 'Primeira ocorrência');
   await verifyMembership(spaceId, userId);
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${ruleId}))`);
@@ -380,7 +386,7 @@ export async function splitRecurrenceFromHereCore(
       description: changes.description ?? current.description,
       direction: changes.direction ?? current.direction,
       expectedAmountCents: changes.expectedAmountCents ?? current.expectedAmountCents,
-      plannedDate: effectiveFrom,
+      plannedDate: firstOccurrenceDate,
     });
     const series = await tx.query.recurrenceSeries.findFirst({
       where: and(eq(recurrenceSeries.id, current.seriesId), eq(recurrenceSeries.spaceId, spaceId)),
@@ -389,8 +395,9 @@ export async function splitRecurrenceFromHereCore(
     if (current.effectiveUntil && effectiveFrom > current.effectiveUntil) {
       throw new Error('A série foi alterada por outra pessoa. Atualize e tente novamente.');
     }
-    if (effectiveFrom <= current.effectiveFrom)
-      throw new Error('A exceção deve ser posterior ao início da série.');
+    if (effectiveFrom < current.effectiveFrom) {
+      throw new Error('A ocorrência deve pertencer ao futuro da série.');
+    }
     const previousDay = new Date(`${effectiveFrom}T00:00:00Z`);
     previousDay.setUTCDate(previousDay.getUTCDate() - 1);
     const materializedOccurrence = await tx.query.financialMovement.findFirst({
@@ -404,11 +411,21 @@ export async function splitRecurrenceFromHereCore(
       generateRecurrenceDates(current, effectiveFrom).findIndex((date) => date === effectiveFrom) +
         1;
     if (occurrenceSequence < 1) throw new Error('A data não pertence à recorrência.');
+    const previousOccurrenceDate =
+      occurrenceSequence > 1
+        ? generateRecurrenceDates(current, effectiveFrom)[occurrenceSequence - 2]
+        : null;
+    if (previousOccurrenceDate && firstOccurrenceDate <= previousOccurrenceDate) {
+      throw new Error('A nova data deve manter a ordem das ocorrências.');
+    }
+    if (materializedOccurrence?.status === 'realized' && firstOccurrenceDate !== effectiveFrom) {
+      throw new Error('A data da série só pode mudar a partir de uma ocorrência pendente.');
+    }
     const nextEffectiveUntil =
       changes.effectiveUntil === undefined ? current.effectiveUntil : changes.effectiveUntil;
     if (nextEffectiveUntil) {
       assertCivilDate(nextEffectiveUntil, 'Data final');
-      if (nextEffectiveUntil < effectiveFrom)
+      if (nextEffectiveUntil < firstOccurrenceDate)
         throw new Error('Data final deve ser posterior à data da exceção.');
     }
     const nextMaxOccurrences =
@@ -441,7 +458,7 @@ export async function splitRecurrenceFromHereCore(
         id: randomUUID(),
         seriesId: current.seriesId,
         version: current.version + 1,
-        effectiveFrom,
+        effectiveFrom: firstOccurrenceDate,
         effectiveUntil: nextEffectiveUntil,
         maxOccurrences: nextMaxOccurrences,
         description: input.description,
@@ -456,7 +473,12 @@ export async function splitRecurrenceFromHereCore(
       spaceId,
       authorId: userId,
       action: 'recurrence.split',
-      changes: JSON.stringify({ previousRuleId: ruleId, nextRuleId: next!.id, effectiveFrom }),
+      changes: JSON.stringify({
+        previousRuleId: ruleId,
+        nextRuleId: next!.id,
+        effectiveFrom,
+        firstOccurrenceDate,
+      }),
     });
     return next!;
   });

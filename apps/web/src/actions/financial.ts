@@ -112,6 +112,9 @@ function userFacingError(error: unknown): FinancialFormState {
     'Valor previsto deve ser um valor positivo em centavos.',
     'Uma transação realizada não pode ter data futura.',
     'O valor realizado deve corresponder ao total pago.',
+    'A nova data deve manter a ordem das ocorrências.',
+    'A data da série só pode mudar a partir de uma ocorrência pendente.',
+    'A ocorrência deve pertencer ao futuro da série.',
   ];
   return {
     status: 'error',
@@ -169,6 +172,7 @@ export async function splitRecurrenceFormAction(
 ): Promise<FinancialFormState> {
   try {
     const effectiveFrom = String(formData.get('effectiveFrom'));
+    const firstOccurrenceDate = String(formData.get('firstOccurrenceDate') ?? '').trim();
     const endDate = String(formData.get('effectiveUntil') ?? '').trim();
     const count = String(formData.get('maxOccurrences') ?? '').trim();
     const cadence = String(formData.get('cadence') ?? '');
@@ -181,9 +185,11 @@ export async function splitRecurrenceFormAction(
         : {}),
       effectiveUntil: endDate || null,
       maxOccurrences: count ? Number.parseInt(count, 10) : null,
+      ...(firstOccurrenceDate ? { firstOccurrenceDate } : {}),
     };
+    const changesDate = firstOccurrenceDate || effectiveFrom;
     const rule =
-      String(formData.get('scope')) === 'all'
+      String(formData.get('scope')) === 'all' && changesDate === effectiveFrom
         ? await updateRecurrenceCore(
             String(formData.get('spaceId')),
             String(formData.get('ruleId')),
@@ -196,7 +202,7 @@ export async function splitRecurrenceFormAction(
             effectiveFrom,
             changes,
           );
-    const horizon = new Date(`${effectiveFrom}T00:00:00Z`);
+    const horizon = new Date(`${changesDate}T00:00:00Z`);
     horizon.setUTCFullYear(horizon.getUTCFullYear() + 1);
     await materializeRecurrence(
       String(formData.get('spaceId')),
