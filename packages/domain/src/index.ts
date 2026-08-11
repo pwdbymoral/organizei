@@ -1,6 +1,7 @@
 export type Direction = 'income' | 'expense';
 export type MovementStatus = 'pending' | 'realized' | 'canceled';
 export type RecurrenceCadence = 'weekly' | 'monthly';
+export type BalanceMode = 'reconstruct_history' | 'confirmed_checkpoint';
 
 export interface FamilySpace {
   id: string;
@@ -21,6 +22,7 @@ export interface ConfirmedBalance {
   confirmedAt: Date;
   authorId: string;
   createdAt: Date;
+  balanceMode?: BalanceMode | null;
 }
 
 export interface FinancialMovement {
@@ -99,6 +101,7 @@ export function calculateCurrentBalanceCents(
   currentCivilDate: string,
   movements: FinancialMovement[],
   payments: FinancialPayment[],
+  balanceMode: BalanceMode = checkpoint.balanceMode ?? 'confirmed_checkpoint',
 ): number {
   const checkpointCivilDate = toCivilDate(checkpoint.confirmedAt);
   const paymentsByMovement = new Map<string, FinancialPayment[]>();
@@ -116,6 +119,7 @@ export function calculateCurrentBalanceCents(
     if (movementPayments.length > 0) {
       for (const payment of movementPayments) {
         const afterCheckpoint =
+          balanceMode === 'reconstruct_history' ||
           payment.paidDate > checkpointCivilDate ||
           (payment.paidDate === checkpointCivilDate &&
             Boolean(payment.createdAt && payment.createdAt > checkpoint.confirmedAt));
@@ -128,7 +132,7 @@ export function calculateCurrentBalanceCents(
     if (
       movement.status === 'realized' &&
       movement.realizedDate &&
-      movement.realizedDate > checkpointCivilDate &&
+      (balanceMode === 'reconstruct_history' || movement.realizedDate > checkpointCivilDate) &&
       movement.realizedDate <= currentCivilDate
     ) {
       current = addSignedAmount(
@@ -151,12 +155,14 @@ export function calculateCashSummary(
   currentCivilDate: string,
   movements: FinancialMovement[],
   payments: FinancialPayment[],
+  balanceMode: BalanceMode = checkpoint.balanceMode ?? 'confirmed_checkpoint',
 ): CashSummary {
   const currentBalanceCents = calculateCurrentBalanceCents(
     checkpoint,
     currentCivilDate,
     movements,
     payments,
+    balanceMode,
   );
   const paymentsByMovement = new Map<string, FinancialPayment[]>();
   for (const payment of payments) {
@@ -222,6 +228,7 @@ export function calculateDailyProjection(
   currentCivilDate: string,
   movements: FinancialMovement[],
   horizonDays: number,
+  balanceMode: BalanceMode = confirmedBalance.balanceMode ?? 'confirmed_checkpoint',
 ): ProjectionResult {
   const checkpointCivilDate = toCivilDate(confirmedBalance.confirmedAt);
 
@@ -250,7 +257,7 @@ export function calculateDailyProjection(
 
     if (mov.status === 'realized') {
       if (!mov.realizedDate) continue; // invalid state, but defensive
-      if (mov.realizedDate <= checkpointCivilDate) {
+      if (balanceMode === 'confirmed_checkpoint' && mov.realizedDate <= checkpointCivilDate) {
         // Assume already included in the checkpoint if it was realized on or before the checkpoint day
         continue;
       }
@@ -329,6 +336,7 @@ export function calculateDailyProjectionWithPayments(
   movements: FinancialMovement[],
   payments: FinancialPayment[],
   horizonDays: number,
+  balanceMode: BalanceMode = confirmedBalance.balanceMode ?? 'confirmed_checkpoint',
 ): ProjectionResult {
   const paymentsByMovement = new Map<string, FinancialPayment[]>();
   for (const payment of payments) {
@@ -368,7 +376,13 @@ export function calculateDailyProjectionWithPayments(
       });
     }
   }
-  return calculateDailyProjection(confirmedBalance, currentCivilDate, events, horizonDays);
+  return calculateDailyProjection(
+    confirmedBalance,
+    currentCivilDate,
+    events,
+    horizonDays,
+    balanceMode,
+  );
 }
 
 function addCivilDays(date: string, days: number): string {
@@ -432,6 +446,7 @@ export function calculateMonthlyProjection(
   currentCivilDate: string,
   movements: FinancialMovement[],
   months: number = 12,
+  balanceMode: BalanceMode = confirmedBalance.balanceMode ?? 'confirmed_checkpoint',
 ): MonthlyProjection[] {
   const horizonDays = Math.max(1, months * 31);
   const daily = calculateDailyProjection(
@@ -439,6 +454,7 @@ export function calculateMonthlyProjection(
     currentCivilDate,
     movements,
     horizonDays,
+    balanceMode,
   ).daily;
   const grouped = new Map<string, MonthlyProjection>();
   for (const day of daily) {
@@ -463,6 +479,7 @@ export function calculateMonthlyProjectionWithPayments(
   movements: FinancialMovement[],
   payments: FinancialPayment[],
   months: number = 12,
+  balanceMode: BalanceMode = confirmedBalance.balanceMode ?? 'confirmed_checkpoint',
 ): MonthlyProjection[] {
   const horizonDays = Math.max(1, months * 31);
   const daily = calculateDailyProjectionWithPayments(
@@ -471,6 +488,7 @@ export function calculateMonthlyProjectionWithPayments(
     movements,
     payments,
     horizonDays,
+    balanceMode,
   ).daily;
   const grouped = new Map<string, MonthlyProjection>();
   for (const day of daily) {

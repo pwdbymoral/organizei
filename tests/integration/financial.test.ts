@@ -23,6 +23,8 @@ let materializeRecurrenceCore: typeof import('../../apps/web/src/lib/financial-c
 let recordPaymentCore: typeof import('../../apps/web/src/lib/financial-core').recordPaymentCore;
 let undoRealizationCore: typeof import('../../apps/web/src/lib/financial-core').undoRealizationCore;
 let splitRecurrenceFromHereCore: typeof import('../../apps/web/src/lib/financial-core').splitRecurrenceFromHereCore;
+let importFinancialCsvCore: typeof import('../../apps/web/src/lib/financial-core').importFinancialCsvCore;
+let clearFinancialWorkspaceCore: typeof import('../../apps/web/src/lib/financial-core').clearFinancialWorkspaceCore;
 
 describe('Financial Domain Integration', () => {
   let userA: string;
@@ -66,6 +68,8 @@ describe('Financial Domain Integration', () => {
     recordPaymentCore = actionsModule.recordPaymentCore;
     undoRealizationCore = actionsModule.undoRealizationCore;
     splitRecurrenceFromHereCore = actionsModule.splitRecurrenceFromHereCore;
+    importFinancialCsvCore = actionsModule.importFinancialCsvCore;
+    clearFinancialWorkspaceCore = actionsModule.clearFinancialWorkspaceCore;
 
     await execFileAsync('pnpm', ['db:migrate'], {
       cwd: process.cwd(),
@@ -498,5 +502,32 @@ describe('Financial Domain Integration', () => {
         .map((movement) => movement.plannedDate)
         .sort(),
     ).toEqual(['2025-08-05', '2025-09-05', '2025-10-05']);
+  });
+
+  it('imports separated planned and paid dates atomically and clears a workspace as admin', async () => {
+    const csv = [
+      'tipo;descricao;direcao;valor;situacao;data_planejada;data_pagamento;valor_realizado;periodicidade;inicio_recorrencia;fim_recorrencia;quantidade_ocorrencias',
+      'transacao;Receita importada;income;100,00;realizada;2025-01-10;2025-01-05;100,00;;;;',
+      'recorrencia;Parcela importada;expense;20,00;pendente;2025-01-10;; ;monthly;2025-01-10;;3',
+    ].join('\n');
+    const result = await importFinancialCsvCore(space2, csv, userC, '2025-01-10');
+    expect(result.imported).toBe(2);
+    const beforeClear = await db.query.financialMovement.findMany({
+      where: (table, { eq }) => eq(table.spaceId, space2),
+    });
+    expect(beforeClear.some((movement) => movement.realizedDate === '2025-01-05')).toBe(true);
+    expect(beforeClear.filter((movement) => movement.recurrenceRuleVersionId)).toHaveLength(3);
+
+    await clearFinancialWorkspaceCore(space2, userC);
+    expect(
+      await db.query.financialMovement.findMany({
+        where: (table, { eq }) => eq(table.spaceId, space2),
+      }),
+    ).toHaveLength(0);
+    expect(
+      await db.query.confirmedBalance.findMany({
+        where: (table, { eq }) => eq(table.spaceId, space2),
+      }),
+    ).toHaveLength(0);
   });
 });

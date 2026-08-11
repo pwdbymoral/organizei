@@ -202,6 +202,78 @@ describe('DailyProjectionEngine invariants', () => {
     ).toBe(0);
   });
 
+  it('reconstructs historical cash events when the opening balance is a starting point', () => {
+    const checkpoint: ConfirmedBalance = {
+      spaceId: 'space-1',
+      amountCents: 0,
+      confirmedAt: new Date('2025-01-10T15:00:00Z'),
+      authorId: 'user-1',
+      createdAt: new Date('2025-01-10T15:00:00Z'),
+    };
+    const movement = {
+      id: 'historical-income',
+      spaceId: 'space-1',
+      description: 'Salário',
+      direction: 'income' as const,
+      expectedAmountCents: 174_300,
+      plannedDate: '2025-01-03',
+      status: 'realized' as const,
+      realizedAmountCents: 174_300,
+      realizedDate: '2025-01-03',
+      createdBy: 'user-1',
+      updatedBy: 'user-1',
+      createdAt: new Date('2025-01-03T12:00:00Z'),
+      updatedAt: new Date('2025-01-03T12:00:00Z'),
+      version: 1,
+    };
+
+    expect(
+      calculateCurrentBalanceCents(
+        checkpoint,
+        '2025-01-10',
+        [movement],
+        [{ id: 'payment', movementId: movement.id, amountCents: 174_300, paidDate: '2025-01-03' }],
+        'reconstruct_history',
+      ),
+    ).toBe(174_300);
+  });
+
+  it('starts reconstruction projections from historical realized events', () => {
+    const checkpoint: ConfirmedBalance = {
+      spaceId: 'space-1',
+      amountCents: 0,
+      confirmedAt: new Date('2025-01-10T15:00:00Z'),
+      authorId: 'user-1',
+      createdAt: new Date('2025-01-10T15:00:00Z'),
+    };
+    const movement = {
+      id: 'historical-income',
+      spaceId: 'space-1',
+      description: 'Salário',
+      direction: 'income' as const,
+      expectedAmountCents: 174_300,
+      plannedDate: '2025-01-03',
+      status: 'realized' as const,
+      realizedAmountCents: 174_300,
+      realizedDate: '2025-01-03',
+      createdBy: 'user-1',
+      updatedBy: 'user-1',
+      createdAt: new Date('2025-01-03T12:00:00Z'),
+      updatedAt: new Date('2025-01-03T12:00:00Z'),
+      version: 1,
+    };
+    expect(
+      calculateDailyProjectionWithPayments(
+        checkpoint,
+        '2025-01-10',
+        [movement],
+        [],
+        1,
+        'reconstruct_history',
+      ).daily[0]?.balanceCents,
+    ).toBe(174_300);
+  });
+
   it('calculates conservative free cash through the next income and falls back to month end', () => {
     const checkpoint: ConfirmedBalance = {
       spaceId: 'space-1',

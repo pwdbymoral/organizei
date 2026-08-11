@@ -29,6 +29,7 @@ export default async function BalancePage() {
   if (!membership) redirect('/app');
   const data = await getDashboardData(membership.spaceId, session.user.id);
   if (!data.lastBalance) redirect('/onboarding');
+  if (!data.lastBalance.balanceMode) redirect('/recalibrate');
   async function save(formData: FormData) {
     'use server';
     const amount = Number(String(formData.get('amount')).replace(',', '.'));

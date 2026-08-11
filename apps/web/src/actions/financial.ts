@@ -21,7 +21,11 @@ import {
   updateRecurrenceCore,
   undoRealizationCore,
   updateMovementCore,
+  clearFinancialWorkspaceCore,
+  importFinancialCsvCore,
 } from '../lib/financial-core';
+import { toCivilDate } from '@organizei/domain';
+import type { BalanceMode } from '@organizei/domain';
 
 export async function requireAuth() {
   const session = await auth.api.getSession({
@@ -31,9 +35,13 @@ export async function requireAuth() {
   return session.user;
 }
 
-export async function confirmBalance(spaceId: string, amountCents: number) {
+export async function confirmBalance(
+  spaceId: string,
+  amountCents: number,
+  balanceMode: BalanceMode = 'confirmed_checkpoint',
+) {
   const user = await requireAuth();
-  return confirmBalanceCore(spaceId, amountCents, user.id);
+  return confirmBalanceCore(spaceId, amountCents, user.id, balanceMode);
 }
 
 export async function createBalanceAdjustment(
@@ -112,6 +120,52 @@ export async function recordPayment(
 export async function undoRealization(spaceId: string, movementId: string, version: number) {
   const user = await requireAuth();
   return undoRealizationCore(spaceId, movementId, version, user.id);
+}
+
+export async function clearFinancialWorkspace(spaceId: string, confirmation: string) {
+  const user = await requireAuth();
+  if (confirmation !== 'LIMPAR WORKSPACE') throw new Error('Confirmação inválida.');
+  return clearFinancialWorkspaceCore(spaceId, user.id);
+}
+
+export async function clearFinancialWorkspaceFormAction(
+  _previous: FinancialFormState,
+  formData: FormData,
+): Promise<FinancialFormState> {
+  try {
+    await clearFinancialWorkspace(
+      String(formData.get('spaceId')),
+      String(formData.get('confirmation')),
+    );
+    revalidatePath('/app');
+    revalidatePath('/app/movements');
+    revalidatePath('/app/more');
+    return { status: 'success', message: 'Workspace limpo.' };
+  } catch (error) {
+    return userFacingError(error);
+  }
+}
+
+export async function importFinancialCsvFormAction(
+  _previous: FinancialFormState,
+  formData: FormData,
+): Promise<FinancialFormState> {
+  try {
+    const file = formData.get('file');
+    if (!(file instanceof File) || file.size === 0) throw new Error('Selecione um arquivo CSV.');
+    if (file.size > 2_000_000) throw new Error('O arquivo CSV deve ter no máximo 2 MB.');
+    await importFinancialCsvCore(
+      String(formData.get('spaceId')),
+      await file.text(),
+      (await requireAuth()).id,
+      toCivilDate(new Date(), 'America/Maceio'),
+    );
+    revalidatePath('/app');
+    revalidatePath('/app/movements');
+    return { status: 'success', message: 'CSV importado com sucesso.' };
+  } catch (error) {
+    return userFacingError(error);
+  }
 }
 
 export async function splitRecurrenceFromHere(

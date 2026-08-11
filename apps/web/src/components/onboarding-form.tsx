@@ -29,6 +29,37 @@ export function OnboardingForm() {
         required
         autoFocus
       />
+      <fieldset className="grid gap-3">
+        <legend className="text-sm font-medium">Como usar esse valor?</legend>
+        <label className="border-border bg-background grid gap-1 rounded-2xl border p-4 text-sm">
+          <span className="flex items-start gap-3">
+            <input
+              type="radio"
+              name="balanceMode"
+              value="reconstruct_history"
+              defaultChecked
+              className="mt-1"
+            />
+            <span>
+              <span className="font-medium">Reconstruir meu histórico</span>
+              <span className="text-text-muted mt-1 block text-xs">
+                As transações realizadas que você cadastrar, inclusive antigas, entram no saldo.
+              </span>
+            </span>
+          </span>
+        </label>
+        <label className="border-border bg-background grid gap-1 rounded-2xl border p-4 text-sm">
+          <span className="flex items-start gap-3">
+            <input type="radio" name="balanceMode" value="confirmed_checkpoint" className="mt-1" />
+            <span>
+              <span className="font-medium">Este é meu saldo real agora</span>
+              <span className="text-text-muted mt-1 block text-xs">
+                Transações anteriores a esta conferência não serão somadas novamente.
+              </span>
+            </span>
+          </span>
+        </label>
+      </fieldset>
       <div className="border-border bg-background rounded-2xl border p-4">
         <label className="flex items-start gap-3 text-sm" htmlFor="registrationReminder">
           <Checkbox id="registrationReminder" name="registrationReminder" defaultChecked />

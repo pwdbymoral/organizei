@@ -8,7 +8,7 @@ import {
   recurrenceRuleVersion,
   recurrenceSeries,
 } from '@organizei/database';
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import {
   calculateCurrentBalanceCents,
@@ -16,7 +16,9 @@ import {
   remainingAmountCents,
   toCivilDate,
   type RecurrenceCadence,
+  type BalanceMode,
 } from '@organizei/domain';
+import { parseCsvMoney, parseFinancialCsv } from './csv-import';
 
 const MAX_CENTS = 2_147_483_647;
 const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -94,7 +96,44 @@ export async function verifyMembership(spaceId: string, userId: string) {
   return membership;
 }
 
-export async function confirmBalanceCore(spaceId: string, amountCents: number, userId: string) {
+export async function clearFinancialWorkspaceCore(spaceId: string, userId: string) {
+  const membership = await verifyMembership(spaceId, userId);
+  if (membership.role !== 'admin') throw new Error('Forbidden');
+
+  return db.transaction(async (tx) => {
+    const movements = await tx.query.financialMovement.findMany({
+      where: eq(financialMovement.spaceId, spaceId),
+      columns: { id: true },
+    });
+    const movementIds = movements.map((movement) => movement.id);
+    if (movementIds.length) {
+      await tx.delete(financialPayment).where(inArray(financialPayment.movementId, movementIds));
+      await tx.delete(financialMovement).where(inArray(financialMovement.id, movementIds));
+    }
+    await tx
+      .delete(recurrenceRuleVersion)
+      .where(
+        inArray(
+          recurrenceRuleVersion.seriesId,
+          tx
+            .select({ id: recurrenceSeries.id })
+            .from(recurrenceSeries)
+            .where(eq(recurrenceSeries.spaceId, spaceId)),
+        ),
+      );
+    await tx.delete(recurrenceSeries).where(eq(recurrenceSeries.spaceId, spaceId));
+    await tx.delete(confirmedBalance).where(eq(confirmedBalance.spaceId, spaceId));
+    await tx.delete(financialAuditLog).where(eq(financialAuditLog.spaceId, spaceId));
+    return { cleared: true };
+  });
+}
+
+export async function confirmBalanceCore(
+  spaceId: string,
+  amountCents: number,
+  userId: string,
+  balanceMode: BalanceMode = 'confirmed_checkpoint',
+) {
   if (!Number.isSafeInteger(amountCents) || amountCents < 0 || amountCents > MAX_CENTS) {
     throw new Error('Saldo deve ser um valor válido em centavos.');
   }
@@ -107,6 +146,7 @@ export async function confirmBalanceCore(spaceId: string, amountCents: number, u
         id: randomUUID(),
         spaceId,
         amountCents,
+        balanceMode,
         authorId: userId,
         confirmedAt: new Date(),
       })
@@ -117,7 +157,11 @@ export async function confirmBalanceCore(spaceId: string, amountCents: number, u
       spaceId,
       authorId: userId,
       action: 'confirmed_balance.create',
-      changes: JSON.stringify({ amountCents, confirmedAt: created!.confirmedAt.toISOString() }),
+      changes: JSON.stringify({
+        amountCents,
+        balanceMode,
+        confirmedAt: created!.confirmedAt.toISOString(),
+      }),
     });
     return created!;
   });
@@ -163,11 +207,16 @@ export async function createBalanceAdjustmentCore(
       direction: movement.direction as 'income' | 'expense',
       status: movement.status as 'pending' | 'realized' | 'canceled',
     }));
+    const normalizedCheckpoint = {
+      ...checkpoint,
+      balanceMode: checkpoint.balanceMode as BalanceMode | null,
+    };
     const currentAmountCents = calculateCurrentBalanceCents(
-      checkpoint,
+      normalizedCheckpoint,
       today,
       normalizedMovements,
       payments,
+      checkpoint.balanceMode as BalanceMode | undefined,
     );
     const differenceCents = targetAmountCents - currentAmountCents;
     if (differenceCents === 0) return null;
@@ -258,6 +307,142 @@ export async function createMovementCore(spaceId: string, data: MovementInput, u
       }),
     });
     return created!;
+  });
+}
+
+export async function importFinancialCsvCore(
+  spaceId: string,
+  csv: string,
+  userId: string,
+  today: string,
+) {
+  const parsed = parseFinancialCsv(csv);
+  if (parsed.errors.length) throw new Error(parsed.errors.join(' '));
+  assertCivilDate(today, 'Hoje');
+  await verifyMembership(spaceId, userId);
+
+  return db.transaction(async (tx) => {
+    let imported = 0;
+    for (const row of parsed.rows) {
+      const expectedAmountCents = parseCsvMoney(row.valor);
+      const realizedAmountCents = row.valor_realizado
+        ? parseCsvMoney(row.valor_realizado)
+        : expectedAmountCents;
+      const plannedDate = row.data_planejada;
+      const realized = row.situacao === 'realizada';
+      if (realized && row.data_pagamento > today)
+        throw new Error('Data de pagamento não pode ser futura.');
+      if (row.tipo === 'transacao') {
+        const [movement] = await tx
+          .insert(financialMovement)
+          .values({
+            id: randomUUID(),
+            spaceId,
+            description: row.descricao,
+            direction: row.direcao as 'income' | 'expense',
+            expectedAmountCents,
+            plannedDate,
+            status: realized ? 'realized' : 'pending',
+            realizedAmountCents: realized ? realizedAmountCents : null,
+            realizedDate: realized ? row.data_pagamento : null,
+            createdBy: userId,
+            updatedBy: userId,
+            version: 1,
+          })
+          .returning();
+        if (realized) {
+          await tx.insert(financialPayment).values({
+            id: randomUUID(),
+            movementId: movement!.id,
+            amountCents: realizedAmountCents,
+            paidDate: row.data_pagamento,
+            authorId: userId,
+          });
+        }
+      } else {
+        if (row.inicio_recorrencia !== plannedDate) {
+          throw new Error('inicio_recorrencia deve ser igual à primeira data_planejada.');
+        }
+        const seriesId = randomUUID();
+        const ruleId = randomUUID();
+        const maxOccurrences = row.quantidade_ocorrencias
+          ? Number.parseInt(row.quantidade_ocorrencias, 10)
+          : null;
+        await tx.insert(recurrenceSeries).values({ id: seriesId, spaceId, createdBy: userId });
+        await tx.insert(recurrenceRuleVersion).values({
+          id: ruleId,
+          seriesId,
+          version: 1,
+          effectiveFrom: plannedDate,
+          effectiveUntil: row.fim_recorrencia || null,
+          maxOccurrences,
+          description: row.descricao,
+          direction: row.direcao as 'income' | 'expense',
+          expectedAmountCents,
+          cadence: row.periodicidade as 'weekly' | 'monthly',
+          createdBy: userId,
+        });
+        const rule = {
+          effectiveFrom: plannedDate,
+          effectiveUntil: row.fim_recorrencia || null,
+          maxOccurrences,
+          cadence: row.periodicidade as 'weekly' | 'monthly',
+        };
+        const horizon = new Date(`${today}T00:00:00Z`);
+        horizon.setUTCFullYear(horizon.getUTCFullYear() + 1);
+        const dates = generateRecurrenceDates(
+          {
+            id: ruleId,
+            seriesId,
+            version: 1,
+            description: row.descricao,
+            direction: row.direcao as 'income' | 'expense',
+            expectedAmountCents,
+            ...rule,
+          },
+          row.fim_recorrencia || horizon.toISOString().slice(0, 10),
+        );
+        for (const [index, date] of dates.entries()) {
+          const [occurrence] = await tx
+            .insert(financialMovement)
+            .values({
+              id: randomUUID(),
+              spaceId,
+              description: row.descricao,
+              direction: row.direcao as 'income' | 'expense',
+              expectedAmountCents,
+              plannedDate: date,
+              status: realized && date === plannedDate ? 'realized' : 'pending',
+              realizedAmountCents: realized && date === plannedDate ? realizedAmountCents : null,
+              realizedDate: realized && date === plannedDate ? row.data_pagamento : null,
+              recurrenceRuleVersionId: ruleId,
+              occurrenceSequence: index + 1,
+              createdBy: userId,
+              updatedBy: userId,
+              version: 1,
+            })
+            .returning();
+          if (realized && date === plannedDate) {
+            await tx.insert(financialPayment).values({
+              id: randomUUID(),
+              movementId: occurrence!.id,
+              amountCents: realizedAmountCents,
+              paidDate: row.data_pagamento,
+              authorId: userId,
+            });
+          }
+        }
+      }
+      await tx.insert(financialAuditLog).values({
+        id: randomUUID(),
+        spaceId,
+        authorId: userId,
+        action: 'financial_import.create',
+        changes: JSON.stringify({ type: row.tipo, description: row.descricao }),
+      });
+      imported += 1;
+    }
+    return { imported };
   });
 }
 
