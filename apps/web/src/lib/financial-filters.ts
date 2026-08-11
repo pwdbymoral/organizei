@@ -28,6 +28,10 @@ export type FilterableMovement = {
   status: 'pending' | 'realized' | 'canceled';
 };
 
+export function resolvePaymentDate(plannedDate: string, today: string) {
+  return plannedDate <= today ? plannedDate : today;
+}
+
 function normalizeText(value: string) {
   return value
     .normalize('NFD')

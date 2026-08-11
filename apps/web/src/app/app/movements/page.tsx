@@ -7,6 +7,7 @@ import {
   parseTimelineFilters,
   matchesTimelineFilters,
   resolveTimelinePeriod,
+  resolvePaymentDate,
 } from '../../../lib/financial-filters';
 import { Badge } from '../../../components/ui/badge';
 import { Empty, EmptyDescription } from '../../../components/ui/empty';
@@ -81,7 +82,7 @@ export default async function MovementsPage({
         spaceId,
         movement.id,
         remaining,
-        data.today,
+        resolvePaymentDate(movement.plannedDate, data.today),
         Number(formData.get('version')),
       );
     revalidatePath('/app/movements');
@@ -292,7 +293,7 @@ export default async function MovementsPage({
                                 movementId={movement.id}
                                 version={movement.version}
                                 description={movement.description}
-                                paidDate={data.today}
+                                paidDate={resolvePaymentDate(movement.plannedDate, data.today)}
                                 remainingCents={remainingAmountCents(
                                   movement.expectedAmountCents,
                                   data.payments.filter(
