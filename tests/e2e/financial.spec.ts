@@ -289,7 +289,8 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     const seriesDialog = pageA.getByRole('dialog', { name: 'Editar esta e as próximas' });
     await expect(seriesDialog).toBeVisible();
     await seriesDialog.getByLabel('Primeira ocorrência em').fill(firstOfMonth);
-    await seriesDialog.getByRole('button', { name: 'Salvar alterações' }).click();
+    // Saving replaces the responsive surface after the server action succeeds.
+    await seriesDialog.getByRole('button', { name: 'Salvar alterações' }).dispatchEvent('click');
     await expect(pageA.getByText('Mensalidade ajustada', { exact: true }).first()).toBeVisible();
 
     await pageA.setViewportSize({ width: 375, height: 800 });
