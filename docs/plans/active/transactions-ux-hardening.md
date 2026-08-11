@@ -11,6 +11,7 @@ Reduzir operações acidentais em ocorrências futuras e tornar claras as difere
 - A edição de recorrências começa por uma escolha explícita de escopo: somente esta, esta e próximas ou todas as futuras.
 - Uma realização pode voltar a pendente; pagamentos são removidos dentro da mesma transação e a reversão fica auditada.
 - O formulário de nova transação usa presets de data e controles com altura consistente.
+- A edição de uma série permite informar a data da primeira nova ocorrência sem reescrever o histórico.
 
 ## Verificação
 

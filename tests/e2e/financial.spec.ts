@@ -257,6 +257,22 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await occurrenceDialog.getByRole('button', { name: 'Salvar transação' }).click();
     await expect(pageA.getByText('Mensalidade ajustada', { exact: true }).first()).toBeVisible();
 
+    const firstOfMonth = `${today.slice(0, 8)}01`;
+    const updatedRecurringCard = pageA
+      .getByText('Mensalidade ajustada', { exact: true })
+      .first()
+      .locator('xpath=ancestor::article');
+    await updatedRecurringCard
+      .getByRole('button', { name: 'Ações para Mensalidade ajustada' })
+      .click();
+    await pageA.getByRole('button', { name: 'Editar', exact: true }).click();
+    await pageA.getByRole('button', { name: 'Esta e as próximas' }).click();
+    const seriesDialog = pageA.getByRole('dialog', { name: 'Editar esta e as próximas' });
+    await expect(seriesDialog).toBeVisible();
+    await seriesDialog.getByLabel('Primeira ocorrência em').fill(firstOfMonth);
+    await seriesDialog.getByRole('button', { name: 'Salvar alterações' }).click();
+    await expect(pageA.getByText('Mensalidade ajustada', { exact: true }).first()).toBeVisible();
+
     await pageA.setViewportSize({ width: 375, height: 800 });
     await expect
       .poll(() => pageA.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))

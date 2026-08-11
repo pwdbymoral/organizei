@@ -346,4 +346,48 @@ describe('Financial Domain Integration', () => {
       'canceled',
     );
   });
+
+  it('moves the selected and future monthly occurrences to a new day', async () => {
+    const rule = await createRecurrenceCore(
+      space1,
+      {
+        description: 'Cobrança mensal',
+        direction: 'expense',
+        expectedAmountCents: 500,
+        plannedDate: '2025-07-07',
+        cadence: 'monthly',
+        effectiveFrom: '2025-07-07',
+        maxOccurrences: 4,
+      },
+      userA,
+    );
+    await materializeRecurrenceCore(space1, rule.id, '2025-10-31', userA);
+
+    const { financialMovement } = await import('../../packages/database/src/index');
+    const selected = (await db.select().from(financialMovement)).find(
+      (movement) =>
+        movement.recurrenceRuleVersionId === rule.id && movement.plannedDate === '2025-08-07',
+    )!;
+    const next = await splitRecurrenceFromHereCore(
+      space1,
+      rule.id,
+      selected.plannedDate,
+      { firstOccurrenceDate: '2025-08-05' },
+      userA,
+    );
+    await materializeRecurrenceCore(space1, next.id, '2025-10-31', userA);
+
+    const updated = await db.select().from(financialMovement);
+    expect(
+      updated.find(
+        (movement) =>
+          movement.recurrenceRuleVersionId === rule.id && movement.plannedDate === '2025-08-07',
+      )?.status,
+    ).toBe('canceled');
+    expect(
+      updated
+        .filter((movement) => movement.recurrenceRuleVersionId === next.id)
+        .map((movement) => movement.plannedDate),
+    ).toEqual(['2025-08-05', '2025-09-05', '2025-10-05']);
+  });
 });
