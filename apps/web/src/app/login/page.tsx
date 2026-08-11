@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -33,7 +33,9 @@ export default function LoginPage() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle id="login-title">Entrar</CardTitle>
+          <h1 id="login-title" className="font-heading text-base font-medium leading-snug">
+            Entrar
+          </h1>
           <CardDescription>Use suas credenciais individuais.</CardDescription>
         </CardHeader>
         <CardContent>

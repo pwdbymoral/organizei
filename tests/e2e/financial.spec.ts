@@ -243,8 +243,9 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     const recurringEntry = pageA.getByText('Mensalidade', { exact: true }).first();
     await expect(recurringEntry).toBeVisible();
 
-    const recurringCard = recurringEntry.locator('xpath=../..');
-    await recurringCard.getByRole('button', { name: 'Editar esta' }).click();
+    const recurringCard = pageA.getByRole('article').filter({ hasText: 'Mensalidade' });
+    await recurringCard.getByRole('button', { name: 'Ações para Mensalidade' }).click();
+    await pageA.getByRole('button', { name: 'Editar esta' }).click();
     const occurrenceDialog = pageA.getByRole('dialog', { name: 'Editar transação' });
     await expect(occurrenceDialog).toBeVisible();
     expect(
