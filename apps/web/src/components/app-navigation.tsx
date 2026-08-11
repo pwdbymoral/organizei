@@ -27,7 +27,7 @@ export function AppNavigation() {
               key={href}
               href={href}
               aria-current={active ? 'page' : undefined}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${active ? 'bg-primary text-white' : 'text-text-muted hover:bg-surface-elevated hover:text-text'}`}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${active ? 'bg-primary text-primary-foreground' : 'text-text-muted hover:bg-surface-elevated hover:text-text'}`}
             >
               <Icon aria-hidden="true" className="size-4" />
               {label}
@@ -38,7 +38,7 @@ export function AppNavigation() {
       <Link
         href={moreItem.href}
         aria-current={pathname.startsWith(moreItem.href) ? 'page' : undefined}
-        className={`hidden items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors sm:flex ${pathname.startsWith(moreItem.href) ? 'bg-primary text-white' : 'text-text-muted hover:bg-surface-elevated hover:text-text'}`}
+        className={`hidden items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors sm:flex ${pathname.startsWith(moreItem.href) ? 'bg-primary text-primary-foreground' : 'text-text-muted hover:bg-surface-elevated hover:text-text'}`}
       >
         <moreItem.Icon aria-hidden="true" className="size-4" />
         {moreItem.label}
@@ -46,7 +46,7 @@ export function AppNavigation() {
       <Link
         href="/add"
         aria-label="Nova transação"
-        className="bg-primary fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-5 z-30 flex size-14 items-center justify-center rounded-full text-white shadow-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--color-primary] sm:hidden"
+        className="bg-primary text-primary-foreground fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-5 z-30 flex size-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--color-primary] sm:hidden"
       >
         <Plus aria-hidden="true" className="size-6" />
       </Link>
@@ -58,7 +58,7 @@ export function AppNavigation() {
               key={href}
               href={href}
               aria-current={active ? 'page' : undefined}
-              className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] ${active ? 'bg-primary text-white' : 'text-text-muted'}`}
+              className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] ${active ? 'bg-primary text-primary-foreground' : 'text-text-muted'}`}
             >
               <Icon aria-hidden="true" className="size-4" />
               {label}
@@ -68,7 +68,7 @@ export function AppNavigation() {
         <Link
           href={moreItem.href}
           aria-current={pathname.startsWith(moreItem.href) ? 'page' : undefined}
-          className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] ${pathname.startsWith(moreItem.href) ? 'bg-primary text-white' : 'text-text-muted'}`}
+          className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] ${pathname.startsWith(moreItem.href) ? 'bg-primary text-primary-foreground' : 'text-text-muted'}`}
         >
           <moreItem.Icon aria-hidden="true" className="size-4" />
           {moreItem.label}
