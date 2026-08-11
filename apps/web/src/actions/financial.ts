@@ -15,6 +15,8 @@ import {
   materializeSpaceRecurrencesCore,
   recordPaymentCore,
   splitRecurrenceFromHereCore,
+  updateRecurrenceCore,
+  undoRealizationCore,
   updateMovementCore,
 } from '../lib/financial-core';
 
@@ -81,6 +83,11 @@ export async function recordPayment(
   return recordPaymentCore(spaceId, movementId, amountCents, paidDate, version, user.id);
 }
 
+export async function undoRealization(spaceId: string, movementId: string, version: number) {
+  const user = await requireAuth();
+  return undoRealizationCore(spaceId, movementId, version, user.id);
+}
+
 export async function splitRecurrenceFromHere(
   spaceId: string,
   ruleId: string,
@@ -139,7 +146,12 @@ export async function updateOccurrenceFormAction(
         description: String(formData.get('description')),
         direction: String(formData.get('direction')) as MovementInput['direction'],
         expectedAmountCents: readMoneyCents(formData.get('amount')),
-        plannedDate: String(formData.get('plannedDate')),
+        ...(formData.get('plannedDate')
+          ? { plannedDate: String(formData.get('plannedDate')) }
+          : {}),
+        ...(formData.get('realizedDate')
+          ? { realizedDate: String(formData.get('realizedDate')) }
+          : {}),
       },
       Number(formData.get('version')),
     );
@@ -160,21 +172,30 @@ export async function splitRecurrenceFormAction(
     const endDate = String(formData.get('effectiveUntil') ?? '').trim();
     const count = String(formData.get('maxOccurrences') ?? '').trim();
     const cadence = String(formData.get('cadence') ?? '');
-    const rule = await splitRecurrenceFromHere(
-      String(formData.get('spaceId')),
-      String(formData.get('ruleId')),
-      effectiveFrom,
-      {
-        description: String(formData.get('description')),
-        direction: String(formData.get('direction')) as MovementInput['direction'],
-        expectedAmountCents: readMoneyCents(formData.get('amount')),
-        ...(cadence === 'weekly' || cadence === 'monthly'
-          ? { cadence: cadence as RecurrenceInput['cadence'] }
-          : {}),
-        effectiveUntil: endDate || null,
-        maxOccurrences: count ? Number.parseInt(count, 10) : null,
-      },
-    );
+    const changes = {
+      description: String(formData.get('description')),
+      direction: String(formData.get('direction')) as MovementInput['direction'],
+      expectedAmountCents: readMoneyCents(formData.get('amount')),
+      ...(cadence === 'weekly' || cadence === 'monthly'
+        ? { cadence: cadence as RecurrenceInput['cadence'] }
+        : {}),
+      effectiveUntil: endDate || null,
+      maxOccurrences: count ? Number.parseInt(count, 10) : null,
+    };
+    const rule =
+      String(formData.get('scope')) === 'all'
+        ? await updateRecurrenceCore(
+            String(formData.get('spaceId')),
+            String(formData.get('ruleId')),
+            changes,
+            (await requireAuth()).id,
+          )
+        : await splitRecurrenceFromHere(
+            String(formData.get('spaceId')),
+            String(formData.get('ruleId')),
+            effectiveFrom,
+            changes,
+          );
     const horizon = new Date(`${effectiveFrom}T00:00:00Z`);
     horizon.setUTCFullYear(horizon.getUTCFullYear() + 1);
     await materializeRecurrence(
