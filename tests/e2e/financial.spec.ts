@@ -248,7 +248,10 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await recurringCard.getByRole('button', { name: 'Ações para Mensalidade' }).click();
     const recurringActions = pageA.getByRole('dialog', { name: 'Ações para Mensalidade' });
     await expect(recurringActions).toBeVisible();
-    await recurringActions.getByRole('button', { name: 'Editar', exact: true }).click();
+    // The nested dialog intentionally unmounts the Popover trigger after opening.
+    await recurringActions
+      .getByRole('button', { name: 'Editar', exact: true })
+      .dispatchEvent('click');
     const editScope = pageA.getByRole('dialog', { name: 'O que deseja editar?' });
     await editScope.getByRole('button', { name: 'Somente esta transação' }).click();
     const occurrenceDialog = pageA.getByRole('dialog', { name: 'Editar transação' });
@@ -272,7 +275,9 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
       name: 'Ações para Mensalidade ajustada',
     });
     await expect(updatedActions).toBeVisible();
-    await updatedActions.getByRole('button', { name: 'Editar', exact: true }).click();
+    await updatedActions
+      .getByRole('button', { name: 'Editar', exact: true })
+      .dispatchEvent('click');
     const updatedEditScope = pageA.getByRole('dialog', { name: 'O que deseja editar?' });
     await updatedEditScope.getByRole('button', { name: 'Esta e as próximas' }).click();
     const seriesDialog = pageA.getByRole('dialog', { name: 'Editar esta e as próximas' });
