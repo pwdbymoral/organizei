@@ -16,6 +16,8 @@ let familyMembership: typeof import('../../packages/database/src/index').familyM
 let confirmBalanceCore: typeof import('../../apps/web/src/lib/financial-core').confirmBalanceCore;
 let createMovementCore: typeof import('../../apps/web/src/lib/financial-core').createMovementCore;
 let updateMovementCore: typeof import('../../apps/web/src/lib/financial-core').updateMovementCore;
+let deleteMovementCore: typeof import('../../apps/web/src/lib/financial-core').deleteMovementCore;
+let deleteRecurrenceOccurrenceCore: typeof import('../../apps/web/src/lib/financial-core').deleteRecurrenceOccurrenceCore;
 let createRecurrenceCore: typeof import('../../apps/web/src/lib/financial-core').createRecurrenceCore;
 let materializeRecurrenceCore: typeof import('../../apps/web/src/lib/financial-core').materializeRecurrenceCore;
 let recordPaymentCore: typeof import('../../apps/web/src/lib/financial-core').recordPaymentCore;
@@ -57,6 +59,8 @@ describe('Financial Domain Integration', () => {
     confirmBalanceCore = actionsModule.confirmBalanceCore;
     createMovementCore = actionsModule.createMovementCore;
     updateMovementCore = actionsModule.updateMovementCore;
+    deleteMovementCore = actionsModule.deleteMovementCore;
+    deleteRecurrenceOccurrenceCore = actionsModule.deleteRecurrenceOccurrenceCore;
     createRecurrenceCore = actionsModule.createRecurrenceCore;
     materializeRecurrenceCore = actionsModule.materializeRecurrenceCore;
     recordPaymentCore = actionsModule.recordPaymentCore;
@@ -253,11 +257,11 @@ describe('Financial Domain Integration', () => {
       },
       userA,
     );
-    await updateMovementCore(space1, created.id, { status: 'canceled' }, created.version, userA);
+    await deleteMovementCore(space1, created.id, created.version, userA);
     const auditRows = await db.select().from(financialAuditLog);
     expect(
       auditRows.filter((row) => row.movementId === created.id).map((row) => row.action),
-    ).toEqual(['financial_movement.create', 'financial_movement.update']);
+    ).toEqual(['financial_movement.create', 'financial_movement.delete']);
   });
 
   it('materializes an idempotent recurring series and records partial payments', async () => {
@@ -295,14 +299,120 @@ describe('Financial Domain Integration', () => {
       space1,
       occurrence.id,
       600,
-      '2025-01-02',
+      '2025-01-01',
       partial.version,
       userB,
     );
     expect(realized.status).toBe('realized');
+    expect(realized.realizedDate).toBe('2025-01-01');
     await expect(
       recordPaymentCore(space1, occurrence.id, 1, '2025-01-03', realized.version, userA),
     ).rejects.toThrow();
+  });
+
+  it('deletes a pending movement without leaving a canceled record', async () => {
+    const movement = await createMovementCore(
+      space1,
+      {
+        description: 'Excluir esta',
+        direction: 'expense',
+        expectedAmountCents: 100,
+        plannedDate: '2025-01-20',
+      },
+      userA,
+    );
+    await deleteMovementCore(space1, movement.id, movement.version, userA);
+    const { financialMovement } = await import('../../packages/database/src/index');
+    expect(
+      (await db.select().from(financialMovement)).some((item) => item.id === movement.id),
+    ).toBe(false);
+  });
+
+  it('starts a recurrence edit after a realized occurrence without duplicating its date', async () => {
+    const rule = await createRecurrenceCore(
+      space1,
+      {
+        description: 'Conta recorrente realizada',
+        direction: 'expense',
+        expectedAmountCents: 100,
+        plannedDate: '2025-07-07',
+        cadence: 'monthly',
+        effectiveFrom: '2025-07-07',
+        maxOccurrences: 4,
+      },
+      userA,
+    );
+    await materializeRecurrenceCore(space1, rule.id, '2025-10-31', userA);
+    const { financialMovement } = await import('../../packages/database/src/index');
+    const selected = (await db.select().from(financialMovement)).find(
+      (movement) =>
+        movement.recurrenceRuleVersionId === rule.id && movement.plannedDate === '2025-08-07',
+    )!;
+    const realized = await recordPaymentCore(
+      space1,
+      selected.id,
+      100,
+      '2025-08-07',
+      selected.version,
+      userA,
+    );
+    const next = await splitRecurrenceFromHereCore(
+      space1,
+      rule.id,
+      '2025-08-07',
+      { description: 'Conta recorrente ajustada', firstOccurrenceDate: '2025-08-07' },
+      userA,
+    );
+    await materializeRecurrenceCore(space1, next.id, '2025-10-31', userA);
+    const updated = await db.select().from(financialMovement);
+    expect(realized.status).toBe('realized');
+    expect(next.effectiveFrom).toBe('2025-09-07');
+    expect(
+      updated
+        .filter((movement) => movement.recurrenceRuleVersionId === rule.id)
+        .map((m) => ({
+          date: m.plannedDate,
+          status: m.status,
+        })),
+    ).toEqual([
+      { date: '2025-07-07', status: 'pending' },
+      { date: '2025-08-07', status: 'realized' },
+    ]);
+    expect(
+      updated
+        .filter((movement) => movement.recurrenceRuleVersionId === next.id)
+        .map((movement) => movement.plannedDate)
+        .sort(),
+    ).toEqual(['2025-09-07', '2025-10-07']);
+  });
+
+  it('deletes one recurring occurrence without rematerializing it', async () => {
+    const rule = await createRecurrenceCore(
+      space1,
+      {
+        description: 'Excluir uma mensalidade',
+        direction: 'expense',
+        expectedAmountCents: 100,
+        plannedDate: '2025-11-01',
+        cadence: 'monthly',
+        effectiveFrom: '2025-11-01',
+        maxOccurrences: 3,
+      },
+      userA,
+    );
+    await materializeRecurrenceCore(space1, rule.id, '2026-01-31', userA);
+    const { financialMovement, recurrenceRuleVersion } = await import(
+      '../../packages/database/src/index'
+    );
+    await deleteRecurrenceOccurrenceCore(space1, rule.id, '2025-12-01', userA);
+    const nextRule = (await db.select().from(recurrenceRuleVersion)).find(
+      (item) => item.seriesId === rule.seriesId && item.version === 2,
+    )!;
+    await materializeRecurrenceCore(space1, nextRule.id, '2026-01-31', userA);
+    const occurrences = (await db.select().from(financialMovement)).filter(
+      (movement) => movement.recurrenceRuleVersionId === nextRule.id,
+    );
+    expect(occurrences.map((movement) => movement.plannedDate).sort()).toEqual(['2026-01-01']);
   });
 
   it('versions a recurrence without changing prior pending history or its remaining installment limit', async () => {
@@ -342,9 +452,7 @@ describe('Financial Domain Integration', () => {
     expect(original.find((movement) => movement.plannedDate === '2025-01-01')?.status).toBe(
       'pending',
     );
-    expect(original.find((movement) => movement.plannedDate === '2025-02-01')?.status).toBe(
-      'canceled',
-    );
+    expect(original.find((movement) => movement.plannedDate === '2025-02-01')).toBeUndefined();
   });
 
   it('moves the selected and future monthly occurrences to a new day', async () => {
@@ -382,8 +490,8 @@ describe('Financial Domain Integration', () => {
       updated.find(
         (movement) =>
           movement.recurrenceRuleVersionId === rule.id && movement.plannedDate === '2025-08-07',
-      )?.status,
-    ).toBe('canceled');
+      ),
+    ).toBeUndefined();
     expect(
       updated
         .filter((movement) => movement.recurrenceRuleVersionId === next.id)

@@ -4,6 +4,7 @@ import {
   parseMoneyFilter,
   parseTimelineFilters,
   resolveTimelinePeriod,
+  resolvePaymentDate,
 } from '../../apps/web/src/lib/financial-filters';
 
 describe('financial timeline filters', () => {
@@ -84,5 +85,10 @@ describe('financial timeline filters', () => {
         '2026-08-11',
       ),
     ).toBe(true);
+  });
+
+  it('uses the planned date for overdue payments and today for early payments', () => {
+    expect(resolvePaymentDate('2026-08-03', '2026-08-11')).toBe('2026-08-03');
+    expect(resolvePaymentDate('2026-08-15', '2026-08-11')).toBe('2026-08-11');
   });
 });
