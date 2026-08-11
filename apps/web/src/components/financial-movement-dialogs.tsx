@@ -175,7 +175,7 @@ export function FinancialMovementDialogs({ spaceId, movement }: MovementDialogPr
                 Voltar
               </Button>
               <Button type="submit" disabled={seriesPending}>
-                {seriesPending ? 'Salvando…' : 'Salvar próximas'}
+                {seriesPending ? 'Salvando…' : 'Salvar alterações'}
               </Button>
             </div>
           </form>
@@ -227,18 +227,39 @@ function MovementFields({
         </Field>
       </div>
       {includeCadence ? (
-        <Field>
-          <FieldLabel htmlFor={'cadence-' + movement.id}>Repetição</FieldLabel>
-          <Select name="cadence" defaultValue={movement.cadence ?? 'monthly'}>
-            <SelectTrigger id={'cadence-' + movement.id} className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="weekly">Semanal</SelectItem>
-              <SelectItem value="monthly">Mensal</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
+        <>
+          <Field>
+            <FieldLabel htmlFor={'first-date-' + movement.id}>Primeira ocorrência em</FieldLabel>
+            <Input
+              id={'first-date-' + movement.id}
+              name="firstOccurrenceDate"
+              type="date"
+              defaultValue={movement.plannedDate}
+              disabled={movement.status === 'realized'}
+              required
+            />
+            {movement.status === 'realized' && (
+              <input type="hidden" name="firstOccurrenceDate" value={movement.plannedDate} />
+            )}
+            <p className="text-text-muted text-xs">
+              {movement.status === 'realized'
+                ? 'Abra uma ocorrência pendente para alterar a data da série.'
+                : 'As próximas ocorrências seguirão o mesmo intervalo a partir desta data.'}
+            </p>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={'cadence-' + movement.id}>Repetição</FieldLabel>
+            <Select name="cadence" defaultValue={movement.cadence ?? 'monthly'}>
+              <SelectTrigger id={'cadence-' + movement.id} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Semanal</SelectItem>
+                <SelectItem value="monthly">Mensal</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+        </>
       ) : (
         <Field>
           <FieldLabel htmlFor={'date-' + movement.id}>
