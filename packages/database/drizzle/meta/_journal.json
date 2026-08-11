@@ -57,6 +57,13 @@
       "when": 1786012274129,
       "tag": "0007_gifted_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786488730258,
+      "tag": "0008_greedy_mephisto",
+      "breakpoints": true
     }
   ]
 }

@@ -256,6 +256,7 @@ export const financialMovement = pgTable(
       sql`(${table.status} = 'realized' AND ${table.realizedDate} IS NOT NULL AND ${table.realizedAmountCents} IS NOT NULL) OR (${table.status} IN ('pending', 'canceled') AND ${table.realizedDate} IS NULL AND ${table.realizedAmountCents} IS NULL)`,
     ),
     index('financial_movement_space_id_idx').on(table.spaceId),
+    index('financial_movement_space_status_idx').on(table.spaceId, table.status),
     index('financial_movement_planned_date_idx').on(table.plannedDate),
     uniqueIndex('financial_movement_recurrence_occurrence_unique').on(
       table.recurrenceRuleVersionId,
