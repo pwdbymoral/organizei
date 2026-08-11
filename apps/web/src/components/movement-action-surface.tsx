@@ -56,7 +56,7 @@ export function MovementActionSurface({
   return (
     <Popover>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent align="end" className="w-80">
+      <PopoverContent align="end" className="w-80" aria-label={`Ações para ${title}`}>
         <PopoverHeader>
           <PopoverTitle>{title}</PopoverTitle>
           <PopoverDescription>{description}</PopoverDescription>

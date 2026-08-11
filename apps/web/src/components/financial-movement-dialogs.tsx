@@ -68,7 +68,12 @@ export function FinancialMovementDialogs({ spaceId, movement }: MovementDialogPr
         open={editScopeOpen}
         onOpenChange={setEditScopeOpen}
         trigger={
-          <Button type="button" variant="outline" className="w-full">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onPointerDown={(event) => event.preventDefault()}
+          >
             Editar
           </Button>
         }

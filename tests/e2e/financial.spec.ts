@@ -246,7 +246,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
 
     const recurringCard = recurringEntry.locator('xpath=ancestor::article');
     await recurringCard.getByRole('button', { name: 'Ações para Mensalidade' }).click();
-    const recurringActions = pageA.getByRole('dialog').filter({ hasText: 'Mensalidade' }).last();
+    const recurringActions = pageA.getByRole('dialog', { name: 'Ações para Mensalidade' });
     await expect(recurringActions).toBeVisible();
     await recurringActions.getByRole('button', { name: 'Editar', exact: true }).click();
     const editScope = pageA.getByRole('dialog', { name: 'O que deseja editar?' });
@@ -268,10 +268,9 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await updatedRecurringCard
       .getByRole('button', { name: 'Ações para Mensalidade ajustada' })
       .click();
-    const updatedActions = pageA
-      .getByRole('dialog')
-      .filter({ hasText: 'Mensalidade ajustada' })
-      .last();
+    const updatedActions = pageA.getByRole('dialog', {
+      name: 'Ações para Mensalidade ajustada',
+    });
     await expect(updatedActions).toBeVisible();
     await updatedActions.getByRole('button', { name: 'Editar', exact: true }).click();
     const updatedEditScope = pageA.getByRole('dialog', { name: 'O que deseja editar?' });
