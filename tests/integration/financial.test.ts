@@ -174,9 +174,11 @@ describe('Financial Domain Integration', () => {
 
     const { financialAuditLog } = await import('../../packages/database/src/index');
     const auditRows = await db.select().from(financialAuditLog);
-    expect(auditRows.find((row) => row.movementId === mov.id)?.action).toBe(
-      'financial_movement.undo_realization',
-    );
+    expect(
+      auditRows.find(
+        (row) => row.movementId === mov.id && row.action === 'financial_movement.undo_realization',
+      ),
+    ).toBeTruthy();
   });
 
   it('prevents user C from accessing space 1', async () => {
