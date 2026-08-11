@@ -3,6 +3,7 @@ import {
   matchesTimelineFilters,
   parseMoneyFilter,
   parseTimelineFilters,
+  resolveTimelinePeriod,
 } from '../../apps/web/src/lib/financial-filters';
 
 describe('financial timeline filters', () => {
@@ -47,5 +48,41 @@ describe('financial timeline filters', () => {
     expect(
       matchesTimelineFilters(movement, parseTimelineFilters({ q: '500,00' }), '2025-01-10'),
     ).toBe(false);
+  });
+
+  it('defaults the timeline to the current month and supports an all view', () => {
+    expect(resolveTimelinePeriod({}, '2026-08-11')).toMatchObject({
+      mode: 'month',
+      from: '2026-08-01',
+      to: '2026-08-31',
+    });
+    expect(resolveTimelinePeriod({ month: '2027-02' }, '2026-08-11')).toMatchObject({
+      mode: 'month',
+      from: '2027-02-01',
+      to: '2027-02-28',
+    });
+    expect(resolveTimelinePeriod({ view: 'all' }, '2026-08-11')).toMatchObject({
+      mode: 'all',
+      from: '',
+      to: '',
+    });
+  });
+
+  it('uses the realized date when filtering a completed movement by period', () => {
+    const movement = {
+      description: 'Compra',
+      direction: 'expense' as const,
+      expectedAmountCents: 5000,
+      plannedDate: '2026-07-31',
+      realizedDate: '2026-08-01',
+      status: 'realized' as const,
+    };
+    expect(
+      matchesTimelineFilters(
+        movement,
+        parseTimelineFilters({ from: '2026-08-01', to: '2026-08-31' }),
+        '2026-08-11',
+      ),
+    ).toBe(true);
   });
 });

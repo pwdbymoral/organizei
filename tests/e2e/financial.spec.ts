@@ -240,12 +240,14 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageA.getByRole('button', { name: 'Concluir' }).click();
     await expect(pageA).toHaveURL(/\/app$/);
     await pageA.goto('/app/movements');
+    await expect(pageA.getByText('Este mês', { exact: true })).toBeVisible();
     const recurringEntry = pageA.getByText('Mensalidade', { exact: true }).first();
     await expect(recurringEntry).toBeVisible();
 
     const recurringCard = recurringEntry.locator('xpath=ancestor::article');
     await recurringCard.getByRole('button', { name: 'Ações para Mensalidade' }).click();
-    await pageA.getByRole('button', { name: 'Editar esta' }).click();
+    await pageA.getByRole('button', { name: 'Editar', exact: true }).click();
+    await pageA.getByRole('button', { name: 'Somente esta transação' }).click();
     const occurrenceDialog = pageA.getByRole('dialog', { name: 'Editar transação' });
     await expect(occurrenceDialog).toBeVisible();
     expect(
@@ -291,6 +293,10 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
         .filter({ hasText: 'Conta de Luz' })
         .getByText('Realizado', { exact: true }),
     ).toBeVisible();
+
+    await lightCard.getByRole('button', { name: 'Ações para Conta de Luz' }).click();
+    await pageB.getByRole('button', { name: 'Desfazer realização' }).click();
+    await expect(pageB.getByText('Pendente', { exact: true }).last()).toBeVisible();
 
     // --- Step 8: Login User C (adversary in other space, different context) ---
     const contextC = await browser.newContext();
