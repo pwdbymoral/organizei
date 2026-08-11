@@ -11,6 +11,7 @@ import {
 import { and, eq, gte, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import {
+  calculateCurrentBalanceCents,
   generateRecurrenceDates,
   remainingAmountCents,
   toCivilDate,
@@ -25,6 +26,7 @@ export type MovementInput = {
   direction: 'income' | 'expense';
   expectedAmountCents: number;
   plannedDate: string;
+  initialStatus?: 'pending' | 'realized';
 };
 
 export type MovementUpdate = Partial<MovementInput> & {
@@ -62,7 +64,12 @@ function validateMovementInput(data: MovementInput) {
   }
   assertPositiveCents(data.expectedAmountCents, 'Valor previsto');
   assertCivilDate(data.plannedDate, 'Data planejada');
-  return { ...data, description };
+  return {
+    description,
+    direction: data.direction,
+    expectedAmountCents: data.expectedAmountCents,
+    plannedDate: data.plannedDate,
+  };
 }
 
 export async function verifyMembership(spaceId: string, userId: string) {
@@ -102,8 +109,99 @@ export async function confirmBalanceCore(spaceId: string, amountCents: number, u
   });
 }
 
+/** Records only the difference between the calculated balance and the user's real balance. */
+export async function createBalanceAdjustmentCore(
+  spaceId: string,
+  targetAmountCents: number,
+  today: string,
+  userId: string,
+) {
+  if (
+    !Number.isSafeInteger(targetAmountCents) ||
+    targetAmountCents < 0 ||
+    targetAmountCents > MAX_CENTS
+  ) {
+    throw new Error('Saldo deve ser um valor válido em centavos.');
+  }
+  assertCivilDate(today, 'Data do ajuste');
+  await verifyMembership(spaceId, userId);
+
+  return db.transaction(async (tx) => {
+    const checkpoint = await tx.query.confirmedBalance.findFirst({
+      where: eq(confirmedBalance.spaceId, spaceId),
+      orderBy: (table, { desc }) => desc(table.confirmedAt),
+    });
+    if (!checkpoint) throw new Error('Nenhum saldo inicial encontrado.');
+    const movements = await tx.query.financialMovement.findMany({
+      where: eq(financialMovement.spaceId, spaceId),
+    });
+    const payments = movements.length
+      ? await tx.query.financialPayment.findMany({
+          where: (table, { inArray }) =>
+            inArray(
+              table.movementId,
+              movements.map((movement) => movement.id),
+            ),
+        })
+      : [];
+    const normalizedMovements = movements.map((movement) => ({
+      ...movement,
+      direction: movement.direction as 'income' | 'expense',
+      status: movement.status as 'pending' | 'realized' | 'canceled',
+    }));
+    const currentAmountCents = calculateCurrentBalanceCents(
+      checkpoint,
+      today,
+      normalizedMovements,
+      payments,
+    );
+    const differenceCents = targetAmountCents - currentAmountCents;
+    if (differenceCents === 0) return null;
+    const direction = differenceCents > 0 ? 'income' : 'expense';
+    const amountCents = Math.abs(differenceCents);
+    const movementId = randomUUID();
+    const [created] = await tx
+      .insert(financialMovement)
+      .values({
+        id: movementId,
+        spaceId,
+        description: 'Ajuste de saldo',
+        direction,
+        expectedAmountCents: amountCents,
+        plannedDate: today,
+        status: 'realized',
+        realizedAmountCents: amountCents,
+        realizedDate: today,
+        createdBy: userId,
+        updatedBy: userId,
+        version: 1,
+      })
+      .returning();
+    await tx.insert(financialPayment).values({
+      id: randomUUID(),
+      movementId,
+      amountCents,
+      paidDate: today,
+      authorId: userId,
+    });
+    await tx.insert(financialAuditLog).values({
+      id: randomUUID(),
+      spaceId,
+      movementId,
+      authorId: userId,
+      action: 'balance_adjustment.create',
+      changes: JSON.stringify({ currentAmountCents, targetAmountCents, differenceCents }),
+    });
+    return created!;
+  });
+}
+
 export async function createMovementCore(spaceId: string, data: MovementInput, userId: string) {
   const input = validateMovementInput(data);
+  const initialStatus = data.initialStatus ?? 'pending';
+  if (initialStatus === 'realized' && input.plannedDate > toCivilDate(new Date())) {
+    throw new Error('Uma transação realizada não pode ter data futura.');
+  }
   await verifyMembership(spaceId, userId);
 
   return db.transaction(async (tx) => {
@@ -113,12 +211,24 @@ export async function createMovementCore(spaceId: string, data: MovementInput, u
         id: randomUUID(),
         spaceId,
         ...input,
-        status: 'pending',
+        status: initialStatus,
+        realizedAmountCents: initialStatus === 'realized' ? input.expectedAmountCents : null,
+        realizedDate: initialStatus === 'realized' ? input.plannedDate : null,
         createdBy: userId,
         updatedBy: userId,
         version: 1,
       })
       .returning();
+
+    if (initialStatus === 'realized') {
+      await tx.insert(financialPayment).values({
+        id: randomUUID(),
+        movementId: created!.id,
+        amountCents: input.expectedAmountCents,
+        paidDate: input.plannedDate,
+        authorId: userId,
+      });
+    }
 
     await tx.insert(financialAuditLog).values({
       id: randomUUID(),
@@ -130,6 +240,7 @@ export async function createMovementCore(spaceId: string, data: MovementInput, u
         direction: input.direction,
         expectedAmountCents: input.expectedAmountCents,
         plannedDate: input.plannedDate,
+        initialStatus,
       }),
     });
     return created!;
@@ -421,7 +532,7 @@ export async function updateMovementCore(
   });
   if (!existing) throw new Error('Not found');
   if (existing.version !== version) throw new Error('Conflict');
-  if (existing.status !== 'pending') throw new Error('Movimentação já finalizada.');
+  if (existing.status === 'canceled') throw new Error('Movimentação já finalizada.');
 
   if (data.status === 'canceled') {
     const payments = await db.query.financialPayment.findMany({
@@ -466,6 +577,25 @@ export async function updateMovementCore(
     throw new Error('Valores realizados exigem uma movimentação realizada.');
   }
 
+  if (existing.status === 'realized') {
+    if (input.status !== undefined) throw new Error('Uma realizada não pode mudar de situação.');
+    if (input.plannedDate && input.plannedDate > toCivilDate(new Date())) {
+      throw new Error('Uma transação realizada não pode ter data futura.');
+    }
+    input.realizedDate = input.plannedDate ?? existing.realizedDate;
+    if (input.expectedAmountCents !== undefined) {
+      const payments = await db.query.financialPayment.findMany({
+        where: eq(financialPayment.movementId, movementId),
+      });
+      const paid = payments.reduce((sum, payment) => sum + payment.amountCents, 0);
+      const currentRealized = existing.realizedAmountCents ?? paid;
+      if (input.expectedAmountCents !== currentRealized) {
+        throw new Error('O valor realizado deve corresponder ao total pago.');
+      }
+      input.realizedAmountCents = input.expectedAmountCents;
+    }
+  }
+
   return db.transaction(async (tx) => {
     const [updated] = await tx
       .update(financialMovement)
@@ -479,6 +609,13 @@ export async function updateMovementCore(
       )
       .returning();
     if (!updated) throw new Error('Conflict');
+
+    if (existing.status === 'realized' && input.plannedDate) {
+      await tx
+        .update(financialPayment)
+        .set({ paidDate: input.plannedDate })
+        .where(eq(financialPayment.movementId, movementId));
+    }
 
     await tx.insert(financialAuditLog).values({
       id: randomUUID(),

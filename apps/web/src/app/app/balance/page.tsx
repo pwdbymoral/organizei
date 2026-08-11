@@ -1,11 +1,23 @@
-import { eq, desc } from 'drizzle-orm';
-import { confirmedBalance, familyMembership } from '@organizei/database';
+import { eq } from 'drizzle-orm';
+import { familyMembership } from '@organizei/database';
 import { auth } from '../../../lib/auth';
-import { confirmBalance } from '../../../actions/financial';
+import { createBalanceAdjustment } from '../../../actions/financial';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { AppNavigation } from '../../../components/app-navigation';
 import { AppPageHeader } from '../../../components/app-page-header';
+import { getDashboardData } from '../../../lib/dashboard-data';
+import { toCivilDate } from '@organizei/domain';
+import { Button } from '../../../components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../../../components/ui/card';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
 
 export default async function BalancePage() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -15,15 +27,17 @@ export default async function BalancePage() {
     where: eq(familyMembership.userId, session.user.id),
   });
   if (!membership) redirect('/app');
-  const latest = await db.query.confirmedBalance.findFirst({
-    where: eq(confirmedBalance.spaceId, membership.spaceId),
-    orderBy: desc(confirmedBalance.confirmedAt),
-  });
+  const data = await getDashboardData(membership.spaceId, session.user.id);
+  if (!data.lastBalance) redirect('/onboarding');
   async function save(formData: FormData) {
     'use server';
     const amount = Number(String(formData.get('amount')).replace(',', '.'));
     if (!Number.isFinite(amount) || amount < 0) return;
-    await confirmBalance(membership!.spaceId, Math.round(amount * 100));
+    await createBalanceAdjustment(
+      membership!.spaceId,
+      Math.round(amount * 100),
+      toCivilDate(new Date(), 'America/Maceio'),
+    );
     redirect('/app');
   }
   return (
@@ -33,42 +47,41 @@ export default async function BalancePage() {
         <div className="max-w-xl">
           <AppPageHeader
             title="Saldo"
-            description="Corrija a base do caixa quando o app e a realidade não coincidirem."
-            context="Conferência excepcional"
+            description="Confira o caixa quando o valor do app e o valor real não coincidirem."
+            context="Conferência"
           />
-          <section className="border-border bg-surface mt-5 rounded-3xl border p-6 sm:p-8">
-            <h2 className="text-xl font-semibold">Corrigir saldo atual</h2>
-            <p className="text-text-muted mt-2">
-              Isso cria uma nova conferência e recalibra a previsão sem apagar suas movimentações.
-            </p>
-            {latest && (
-              <p className="text-text-muted bg-background mt-3 rounded-xl p-3 text-sm">
-                Último valor informado:{' '}
+          <Card className="mt-5">
+            <CardHeader>
+              <CardTitle>Conferir saldo atual</CardTitle>
+              <CardDescription>
+                Isso cria um ajuste no histórico e recalibra as previsões sem apagar suas
+                transações.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="bg-muted rounded-xl p-3 text-sm">
+                Saldo calculado agora:{' '}
                 <strong>
                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                    latest.amountCents / 100,
+                    data.cashSummary.currentBalanceCents / 100,
                   )}
                 </strong>
-                .
+                . O app registra somente a diferença.
               </p>
-            )}
-            <form action={save} className="mt-8 grid gap-4">
-              <label className="text-sm font-medium">
-                Novo saldo atual
-                <input
+              <form action={save} className="grid gap-4">
+                <Label htmlFor="amount">Saldo encontrado agora</Label>
+                <Input
+                  id="amount"
                   name="amount"
                   type="text"
                   inputMode="decimal"
                   placeholder="R$ 0,00"
                   required
-                  className="border-border bg-background mt-1 min-h-12 w-full rounded-xl border px-3 text-lg"
                 />
-              </label>
-              <button className="bg-primary min-h-12 rounded-xl px-4 font-semibold text-white">
-                Corrigir saldo
-              </button>
-            </form>
-          </section>
+                <Button className="min-h-12">Salvar conferência</Button>
+              </form>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </main>

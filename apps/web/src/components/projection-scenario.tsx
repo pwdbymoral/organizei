@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { Input } from './ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -31,29 +33,28 @@ export function ProjectionScenario({ data }: { data: Point[] }) {
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <label className="grid gap-1 text-sm font-medium" htmlFor="scenario-amount">
           Valor (R$)
-          <input
+          <Input
             id="scenario-amount"
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
             inputMode="decimal"
             placeholder="50,00"
-            className="border-border bg-background min-h-11 rounded-xl border px-3"
           />
         </label>
         <label className="grid gap-1 text-sm font-medium" htmlFor="scenario-date">
           Quando?
-          <select
-            id="scenario-date"
-            value={date}
-            onChange={(event) => setDate(event.target.value)}
-            className="border-border bg-background min-h-11 rounded-xl border px-3"
-          >
-            {data.map((point) => (
-              <option key={point.date} value={point.date}>
-                {point.date}
-              </option>
-            ))}
-          </select>
+          <Select value={date} onValueChange={setDate}>
+            <SelectTrigger id="scenario-date" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {data.map((point) => (
+                <SelectItem key={point.date} value={point.date}>
+                  {point.date}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
       </div>
       {result && (

@@ -4,7 +4,8 @@ import { familyMembership } from '@organizei/database';
 import { auth } from '../../../lib/auth';
 import { getDashboardData } from '../../../lib/dashboard-data';
 import { parseTimelineFilters, matchesTimelineFilters } from '../../../lib/financial-filters';
-import { StatusBadge, EmptyState } from '@organizei/ui';
+import { Badge } from '../../../components/ui/badge';
+import { Empty, EmptyDescription } from '../../../components/ui/empty';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { recordPayment, updateMovement } from '../../../actions/financial';
@@ -15,6 +16,17 @@ import { AppNavigation } from '../../../components/app-navigation';
 import { AppPageHeader } from '../../../components/app-page-header';
 import { remainingAmountCents } from '@organizei/domain';
 import { ConfirmSubmitButton } from '../../../components/confirm-submit-button';
+import { MovementActionSurface } from '../../../components/movement-action-surface';
+import { ResponsiveFilters } from '../../../components/responsive-filters';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../../components/ui/select';
 
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const date = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
@@ -43,16 +55,6 @@ export default async function MovementsPage({
       filters.direction !== 'all' ||
       filters.from ||
       filters.to,
-  );
-  const totals = movements.reduce(
-    (result, movement) => {
-      if (movement.status === 'canceled') return result;
-      result[movement.direction === 'income' ? 'incomeCents' : 'expenseCents'] +=
-        movement.expectedAmountCents;
-      if (movement.status === 'pending') result.pendingCents += movement.expectedAmountCents;
-      return result;
-    },
-    { incomeCents: 0, expenseCents: 0, pendingCents: 0 },
   );
   async function realize(formData: FormData) {
     'use server';
@@ -88,102 +90,79 @@ export default async function MovementsPage({
     <main className="bg-background text-text min-h-screen pb-28 sm:pb-10">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-5 sm:px-8 sm:py-8">
         <AppPageHeader
-          title="Movimentações"
-          description="Veja o que já aconteceu e o que ainda influencia o caixa."
+          title="Transações"
+          description="Registre o que aconteceu e acompanhe o que vem pela frente."
           context="Seu histórico financeiro"
         />
         <AppNavigation />
-        <div className="flex items-center justify-between">
-          <span className="text-text-muted text-sm">{movements.length} movimentação(ões)</span>
-          <Link
-            href="/add"
-            className="bg-primary rounded-xl px-4 py-2.5 text-sm font-semibold text-white"
-          >
-            Adicionar movimentação
-          </Link>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-text-muted text-sm">{movements.length} transações</span>
+          <Button asChild className="w-full sm:w-auto">
+            <Link href="/add">Nova transação</Link>
+          </Button>
         </div>
-        <details open={hasFilters} className="border-border bg-surface rounded-2xl border">
-          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--color-primary]">
-            Buscar ou filtrar{' '}
-            <span className="text-text-muted ml-1 text-xs font-normal">(opcional)</span>
-          </summary>
-          <form
-            method="get"
-            className="border-border grid gap-3 border-t p-4 sm:grid-cols-2 lg:grid-cols-4"
-          >
+        <ResponsiveFilters active={hasFilters}>
+          <form method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <label className="text-sm font-medium sm:col-span-2">
               Buscar descrição ou valor
-              <input
+              <Input
                 name="q"
                 defaultValue={filters.query}
                 placeholder="Ex.: aluguel ou 1.250,00"
-                className="border-border bg-background mt-1 min-h-11 w-full rounded-xl border px-3"
+                className="mt-1"
               />
             </label>
             <label className="text-sm font-medium">
               Situação
-              <select
-                name="status"
-                defaultValue={filters.status}
-                className="border-border bg-background mt-1 min-h-11 w-full rounded-xl border px-3"
-              >
-                <option value="all">Todas</option>
-                <option value="pending">Pendente</option>
-                <option value="realized">Realizado</option>
-                <option value="canceled">Cancelado</option>
-                <option value="overdue">Vencido</option>
-              </select>
+              <Select name="status" defaultValue={filters.status}>
+                <SelectTrigger className="mt-1 w-full">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="pending">Pendente</SelectItem>
+                  <SelectItem value="realized">Realizada</SelectItem>
+                  <SelectItem value="canceled">Cancelada</SelectItem>
+                  <SelectItem value="overdue">Vencida</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
             <label className="text-sm font-medium">
               Tipo
-              <select
-                name="direction"
-                defaultValue={filters.direction}
-                className="border-border bg-background mt-1 min-h-11 w-full rounded-xl border px-3"
-              >
-                <option value="all">Todos</option>
-                <option value="income">Entradas</option>
-                <option value="expense">Saídas</option>
-              </select>
+              <Select name="direction" defaultValue={filters.direction}>
+                <SelectTrigger className="mt-1 w-full">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="income">Entradas</SelectItem>
+                  <SelectItem value="expense">Saídas</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
             <label className="text-sm font-medium">
               De
-              <input
-                type="date"
-                name="from"
-                defaultValue={filters.from}
-                className="border-border bg-background mt-1 min-h-11 w-full rounded-xl border px-3"
-              />
+              <Input type="date" name="from" defaultValue={filters.from} className="mt-1" />
             </label>
             <label className="text-sm font-medium">
               Até
-              <input
-                type="date"
-                name="to"
-                defaultValue={filters.to}
-                className="border-border bg-background mt-1 min-h-11 w-full rounded-xl border px-3"
-              />
+              <Input type="date" name="to" defaultValue={filters.to} className="mt-1" />
             </label>
             <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
-              <button className="bg-primary min-h-11 rounded-xl px-4 text-sm font-semibold text-white">
-                Aplicar filtros
-              </button>
+              <Button type="submit">Aplicar filtros</Button>
               <Link
                 href="/app/movements"
-                className="border-border min-h-11 rounded-xl border px-4 py-2 text-sm"
+                className="inline-flex min-h-10 items-center rounded-md border px-4 py-2 text-sm"
               >
                 Limpar
               </Link>
             </div>
           </form>
-        </details>
-        <section className="grid gap-3 sm:grid-cols-3" aria-label="Resumo das movimentações">
-          <Summary label="Entradas" value={fmtMoney(totals.incomeCents)} tone="positive" />
-          <Summary label="Saídas" value={fmtMoney(totals.expenseCents)} tone="danger" />
-          <Summary label="Pendentes" value={fmtMoney(totals.pendingCents)} tone="warning" />
-        </section>
+        </ResponsiveFilters>
         {movements.length === 0 ? (
-          <EmptyState>Nenhuma movimentação encontrada.</EmptyState>
+          <Empty className="border-border bg-surface rounded border border-dashed py-8">
+            <EmptyDescription>Nenhuma transação encontrada.</EmptyDescription>
+          </Empty>
         ) : (
           <section className="border-border bg-surface divide-border divide-y overflow-hidden rounded-2xl border">
             {movements.map((movement) => {
@@ -191,23 +170,24 @@ export default async function MovementsPage({
               return (
                 <article
                   key={movement.id}
-                  className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
                 >
-                  <div>
-                    <h2 className="font-medium">{movement.description}</h2>
+                  <div className="min-w-0">
+                    <h2 className="truncate font-medium">{movement.description}</h2>
                     <p className="text-text-muted mt-1 text-sm">
                       {fmtDate(movement.plannedDate)} ·{' '}
                       {movement.direction === 'income' ? 'Entrada' : 'Saída'}
                     </p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <StatusBadge
-                      tone={
+                  <div className="flex items-center justify-between gap-3 sm:contents">
+                    <Badge
+                      variant={movement.status === 'canceled' ? 'outline' : 'secondary'}
+                      className={
                         movement.status === 'realized'
-                          ? 'positive'
-                          : movement.status === 'canceled'
-                            ? 'neutral'
-                            : 'warning'
+                          ? 'text-positive'
+                          : movement.status === 'pending'
+                            ? 'text-warning'
+                            : 'text-muted-foreground'
                       }
                     >
                       {movement.status === 'realized'
@@ -217,7 +197,7 @@ export default async function MovementsPage({
                           : overdue
                             ? 'Vencido'
                             : 'Pendente'}
-                    </StatusBadge>
+                    </Badge>
                     <span
                       className={
                         movement.direction === 'income'
@@ -228,28 +208,43 @@ export default async function MovementsPage({
                       {movement.direction === 'income' ? '+' : '-'}{' '}
                       {fmtMoney(movement.expectedAmountCents)}
                     </span>
-                    {movement.status === 'pending' && (
-                      <>
-                        <FinancialPaymentForm
-                          spaceId={spaceId}
-                          movementId={movement.id}
-                          version={movement.version}
-                          description={movement.description}
-                          paidDate={data.today}
-                          remainingCents={remainingAmountCents(
-                            movement.expectedAmountCents,
-                            data.payments.filter((payment) => payment.movementId === movement.id),
-                          )}
-                        />
-                        <form action={realize}>
-                          <input type="hidden" name="movementId" value={movement.id} />
-                          <input type="hidden" name="version" value={movement.version} />
-                          <button className="border-border min-h-11 rounded-xl border px-3 text-xs font-semibold">
-                            {movement.direction === 'income'
-                              ? 'Registrar entrada'
-                              : 'Registrar pagamento integral'}
-                          </button>
-                        </form>
+                  </div>
+                  {movement.status !== 'canceled' && (
+                    <div className="sm:justify-self-end">
+                      <MovementActionSurface
+                        title={movement.description}
+                        description={
+                          (movement.direction === 'income' ? 'Entrada' : 'Saída') +
+                          ' de ' +
+                          fmtMoney(movement.expectedAmountCents)
+                        }
+                      >
+                        {movement.status === 'pending' && (
+                          <>
+                            <FinancialPaymentForm
+                              spaceId={spaceId}
+                              movementId={movement.id}
+                              version={movement.version}
+                              description={movement.description}
+                              paidDate={data.today}
+                              remainingCents={remainingAmountCents(
+                                movement.expectedAmountCents,
+                                data.payments.filter(
+                                  (payment) => payment.movementId === movement.id,
+                                ),
+                              )}
+                            />
+                            <form action={realize} className="grid gap-2">
+                              <input type="hidden" name="movementId" value={movement.id} />
+                              <input type="hidden" name="version" value={movement.version} />
+                              <Button type="submit" className="w-full">
+                                {movement.direction === 'income'
+                                  ? 'Registrar entrada'
+                                  : 'Registrar pagamento integral'}
+                              </Button>
+                            </form>
+                          </>
+                        )}
                         <FinancialMovementDialogs
                           spaceId={spaceId}
                           movement={{
@@ -266,19 +261,21 @@ export default async function MovementsPage({
                             plannedDate: movement.plannedDate,
                           }}
                         />
-                        <form action={cancel}>
-                          <input type="hidden" name="movementId" value={movement.id} />
-                          <input type="hidden" name="version" value={movement.version} />
-                          <ConfirmSubmitButton
-                            message="Cancelar esta movimentação? Ela deixará de influenciar as projeções futuras."
-                            className="text-danger border-border min-h-11 rounded-xl border px-3 text-xs"
-                          >
-                            Cancelar
-                          </ConfirmSubmitButton>
-                        </form>
-                      </>
-                    )}
-                  </div>
+                        {movement.status === 'pending' && (
+                          <form action={cancel}>
+                            <input type="hidden" name="movementId" value={movement.id} />
+                            <input type="hidden" name="version" value={movement.version} />
+                            <ConfirmSubmitButton
+                              message="Cancelar esta transação? Ela deixará de influenciar as previsões futuras."
+                              className="text-destructive border-border min-h-10 w-full rounded-md border px-3 text-sm"
+                            >
+                              Cancelar
+                            </ConfirmSubmitButton>
+                          </form>
+                        )}
+                      </MovementActionSurface>
+                    </div>
+                  )}
                 </article>
               );
             })}
@@ -292,23 +289,4 @@ export default async function MovementsPage({
 async function dbMembership(userId: string) {
   const { db } = await import('@organizei/database');
   return db.query.familyMembership.findFirst({ where: eq(familyMembership.userId, userId) });
-}
-
-function Summary({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: 'positive' | 'danger' | 'warning';
-}) {
-  const toneClass =
-    tone === 'positive' ? 'text-positive' : tone === 'danger' ? 'text-danger' : 'text-warning';
-  return (
-    <article className="border-border bg-surface rounded-2xl border p-4">
-      <p className="text-text-muted text-xs">{label}</p>
-      <p className={`mt-1 text-lg font-semibold ${toneClass}`}>{value}</p>
-    </article>
-  );
 }

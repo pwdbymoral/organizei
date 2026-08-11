@@ -172,44 +172,47 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     // --- Step 2: Confirm new balance ---
     await pageA.goto('/app/balance');
     await expect(pageA.getByRole('heading', { name: 'Saldo', exact: true })).toBeVisible();
-    await pageA.getByLabel('Novo saldo atual').fill('100.00');
-    await pageA.getByRole('button', { name: 'Corrigir saldo' }).click();
+    await pageA.getByLabel('Saldo encontrado agora').fill('100.00');
+    await pageA.getByRole('button', { name: 'Salvar conferência' }).click();
     await expect(pageA.getByText('R$ 100,00').first()).toBeVisible();
 
     // --- Step 3: Add transactions (Income and Expense) ---
-    await pageA.getByRole('link', { name: /Adicionar movimentação/ }).click();
-    await expect(pageA.getByRole('heading', { name: 'Adicionar movimentação' })).toBeVisible();
+    await pageA.getByRole('link', { name: /Nova transação/ }).click();
+    await expect(pageA.getByRole('heading', { name: 'Nova transação' })).toBeVisible();
 
     // Add Income
     await pageA.getByLabel('Descrição').fill('Salário Mensal');
-    await pageA.getByLabel('Tipo').selectOption('income');
-    await pageA.getByLabel('Valor').fill('50.00');
+    await pageA.getByRole('combobox', { name: 'Tipo' }).click();
+    await pageA.getByRole('option', { name: 'Entrada' }).click();
+    await pageA.getByLabel('Valor (R$)').fill('50.00');
     // Match the application's civil date so the projection includes today's movement.
     const today = await pageA.evaluate(() =>
       new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Maceio' }).format(new Date()),
     );
-    await pageA.getByLabel('Data planejada').fill(today);
+    await pageA.locator('#plannedDate').fill(today);
     await pageA.getByRole('button', { name: 'Salvar' }).click();
     await expect(pageA.getByText('Movimentação salva.')).toBeVisible();
     await pageA.getByRole('button', { name: 'Concluir' }).click();
 
-    // Verify redirect and updated projection balance (100 + 50 = 150)
-    await expect(pageA.getByText('R$ 100,00').first()).toBeVisible();
+    // Verify redirect and updated current balance (100 + 50 = 150)
+    await expect(pageA.getByText('R$ 150,00').first()).toBeVisible();
     await expect(pageA.getByText('Salário Mensal')).toBeVisible();
 
     // Add Expense (that makes projection drop, we will set a future one to check projection)
-    await pageA.getByRole('link', { name: /Adicionar movimentação/ }).click();
-    await expect(pageA.getByRole('heading', { name: 'Adicionar movimentação' })).toBeVisible();
+    await pageA.getByRole('link', { name: /Nova transação/ }).click();
+    await expect(pageA.getByRole('heading', { name: 'Nova transação' })).toBeVisible();
     await pageA.getByLabel('Descrição').fill('Conta de Luz');
-    await pageA.getByLabel('Tipo').selectOption('expense');
-    await pageA.getByLabel('Valor').fill('30.00');
-    await pageA.getByLabel('Data planejada').fill(today);
+    await pageA.getByRole('combobox', { name: 'Tipo' }).click();
+    await pageA.getByRole('option', { name: 'Saída' }).click();
+    await pageA.getByLabel('Valor (R$)').fill('30.00');
+    await pageA.getByRole('tab', { name: 'Está previsto' }).click();
+    await pageA.locator('#plannedDate').fill(today);
     await pageA.getByRole('button', { name: 'Salvar' }).click();
     await expect(pageA.getByText('Movimentação salva.')).toBeVisible();
     await pageA.getByRole('button', { name: 'Concluir' }).click();
 
-    // Balance should be R$ 120,00 (150 - 30)
-    await expect(pageA.getByText('R$ 100,00').first()).toBeVisible();
+    // Pending expense does not change current balance immediately.
+    await expect(pageA.getByText('R$ 150,00').first()).toBeVisible();
     await expect(pageA.getByText('Conta de Luz')).toBeVisible();
 
     // Timeline search accepts description and Brazilian currency values without changing projections.
@@ -225,12 +228,13 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageA.goto('/app');
 
     // Recurring movement plus an occurrence-only exception must remain operable on mobile.
-    await pageA.getByRole('link', { name: /Adicionar movimentação/ }).click();
-    await expect(pageA.getByRole('heading', { name: 'Adicionar movimentação' })).toBeVisible();
-    await pageA.getByLabel('Repetição').selectOption('monthly');
+    await pageA.getByRole('link', { name: /Nova transação/ }).click();
+    await expect(pageA.getByRole('heading', { name: 'Nova transação' })).toBeVisible();
+    await pageA.getByRole('combobox', { name: 'Repetição ou parcelamento' }).click();
+    await pageA.getByRole('option', { name: 'Repetir todo mês' }).click();
     await pageA.getByLabel('Descrição').fill('Mensalidade');
     await pageA.getByLabel('Valor (R$)').fill('20,00');
-    await pageA.getByLabel('Data planejada').fill(today);
+    await pageA.locator('#plannedDate').fill(today);
     await pageA.getByRole('button', { name: 'Salvar' }).click();
     await expect(pageA.getByText('Movimentação salva.')).toBeVisible();
     await pageA.getByRole('button', { name: 'Concluir' }).click();
@@ -239,15 +243,16 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     const recurringEntry = pageA.getByText('Mensalidade', { exact: true }).first();
     await expect(recurringEntry).toBeVisible();
 
-    const recurringCard = recurringEntry.locator('xpath=../..');
-    await recurringCard.getByRole('button', { name: 'Editar esta' }).click();
-    const occurrenceDialog = pageA.getByRole('dialog', { name: 'Editar esta ocorrência' });
+    const recurringCard = recurringEntry.locator('xpath=ancestor::article');
+    await recurringCard.getByRole('button', { name: 'Ações para Mensalidade' }).click();
+    await pageA.getByRole('button', { name: 'Editar esta' }).click();
+    const occurrenceDialog = pageA.getByRole('dialog', { name: 'Editar transação' });
     await expect(occurrenceDialog).toBeVisible();
     expect(
       await new AxeBuilder({ page: pageA }).include('[role="dialog"]').analyze(),
     ).toHaveProperty('violations', []);
     await occurrenceDialog.getByLabel('Descrição').fill('Mensalidade ajustada');
-    await occurrenceDialog.getByRole('button', { name: 'Salvar ocorrência' }).click();
+    await occurrenceDialog.getByRole('button', { name: 'Salvar transação' }).click();
     await expect(pageA.getByText('Mensalidade ajustada', { exact: true }).first()).toBeVisible();
 
     await pageA.setViewportSize({ width: 375, height: 800 });
@@ -275,7 +280,8 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     // --- Step 6: User B realizes a transaction ---
     // Register the full payment for Luz
     const lightCard = pageB.getByRole('article').filter({ hasText: 'Conta de Luz' });
-    await lightCard.getByRole('button', { name: 'Registrar pagamento integral' }).click();
+    await lightCard.getByRole('button', { name: 'Ações para Conta de Luz' }).click();
+    await pageB.getByRole('button', { name: 'Registrar pagamento integral' }).click();
     await pageB.reload();
 
     // Check updated status to "Realizado"
@@ -300,8 +306,8 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
       timeout: 15000,
     });
     await expect(pageC.getByText('R$ 0,00').first()).toBeVisible();
-    await pageC.getByRole('link', { name: 'Movimentações', exact: true }).click();
-    await expect(pageC.getByText('Nenhuma movimentação encontrada.')).toBeVisible();
+    await pageC.getByRole('link', { name: 'Transações', exact: true }).click();
+    await expect(pageC.getByText('Nenhuma transação encontrada.')).toBeVisible();
 
     // Verify User C cannot see Space 1 transactions
     await expect(pageC.getByText('Salário Mensal')).not.toBeVisible();

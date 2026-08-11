@@ -7,8 +7,8 @@ import { auth } from '../../lib/auth';
 import { getDashboardData } from '../../lib/dashboard-data';
 import { AppNavigation } from '../../components/app-navigation';
 import { AppPageHeader } from '../../components/app-page-header';
-import { EmptyState, StatusBadge } from '@organizei/ui';
-import { toCivilDate } from '@organizei/domain';
+import { Badge } from '../../components/ui/badge';
+import { Empty, EmptyDescription } from '../../components/ui/empty';
 
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const date = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
@@ -60,10 +60,6 @@ export default async function Dashboard() {
             <p className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
               {fmtMoney(data.cashSummary.currentBalanceCents)}
             </p>
-            <p className="mt-3 text-sm text-white/80">
-              Baseado no último saldo informado em{' '}
-              {fmtDate(toCivilDate(data.lastBalance.confirmedAt))}.
-            </p>
             {data.projection.firstNegativeDate && (
               <p className="mt-5 rounded-2xl bg-white/10 p-3 text-sm">
                 O saldo pode ficar negativo em {fmtDate(data.projection.firstNegativeDate)}.{' '}
@@ -80,7 +76,7 @@ export default async function Dashboard() {
               {fmtMoney(data.cashSummary.freeCashCents)}
             </p>
             <p className="text-text-muted mt-2 text-sm">
-              Depois dos compromissos até {fmtDate(data.cashSummary.freeCashThrough)}.
+              Disponível depois dos compromissos até {fmtDate(data.cashSummary.freeCashThrough)}.
             </p>
             <Link
               href="/app/projection"
@@ -100,9 +96,9 @@ export default async function Dashboard() {
             className="bg-primary/10 border-primary/20 text-text hover:bg-primary/15 flex min-h-24 items-center justify-between rounded-2xl border p-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--color-primary]"
           >
             <span>
-              <span className="block text-lg font-semibold">Adicionar movimentação</span>
+              <span className="block text-lg font-semibold">Nova transação</span>
               <span className="text-text-muted mt-1 block text-sm">
-                Registre uma entrada ou saída em poucos passos.
+                Registre o que aconteceu ou o que está previsto.
               </span>
             </span>
             <span aria-hidden="true" className="text-primary text-3xl">
@@ -114,7 +110,7 @@ export default async function Dashboard() {
             className="border-border bg-surface hover:bg-surface-elevated flex min-h-24 items-center justify-between rounded-2xl border p-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--color-primary]"
           >
             <span>
-              <span className="block text-lg font-semibold">Ver movimentações</span>
+              <span className="block text-lg font-semibold">Ver transações</span>
               <span className="text-text-muted mt-1 block text-sm">
                 Revise o que já aconteceu e o que vem pela frente.
               </span>
@@ -137,7 +133,9 @@ export default async function Dashboard() {
               </Link>
             </div>
             {upcoming.length === 0 ? (
-              <EmptyState>Nenhuma movimentação pendente.</EmptyState>
+              <Empty className="border-border bg-surface rounded border border-dashed py-8">
+                <EmptyDescription>Nenhuma transação pendente.</EmptyDescription>
+              </Empty>
             ) : (
               <div className="divide-border divide-y">
                 {upcoming.map((movement) => (
@@ -161,7 +159,9 @@ export default async function Dashboard() {
                         {movement.direction === 'income' ? '+' : '-'}{' '}
                         {fmtMoney(movement.expectedAmountCents)}
                       </p>
-                      <StatusBadge tone="warning">Pendente</StatusBadge>
+                      <Badge variant="outline" className="text-warning">
+                        Pendente
+                      </Badge>
                     </div>
                   </div>
                 ))}
@@ -183,7 +183,9 @@ export default async function Dashboard() {
               </Link>
             </div>
             {recent.length === 0 ? (
-              <EmptyState>Nenhuma movimentação realizada ainda.</EmptyState>
+              <Empty className="border-border bg-surface rounded border border-dashed py-8">
+                <EmptyDescription>Nenhuma transação realizada ainda.</EmptyDescription>
+              </Empty>
             ) : (
               <div className="divide-border divide-y">
                 {recent.map((movement) => (

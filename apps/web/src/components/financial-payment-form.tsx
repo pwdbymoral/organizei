@@ -2,6 +2,8 @@
 
 import { useActionState } from 'react';
 import { recordPaymentFormAction } from '../actions/financial';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
 
 const initialFinancialFormState = { status: 'idle' as const, message: '' };
 
@@ -32,23 +34,24 @@ export function FinancialPaymentForm({
       <input type="hidden" name="movementId" value={movementId} />
       <input type="hidden" name="version" value={version} />
       <input type="hidden" name="paidDate" value={paidDate} />
-      <input
-        aria-label={`Valor pago para ${description}`}
+      <Input
+        aria-label={'Valor pago para ' + description}
         name="amount"
         type="text"
         inputMode="decimal"
         placeholder="Valor pago"
         pattern="\d+([,.]\d{1,2})?"
         required
-        className="border-border bg-background text-text min-h-11 w-24 rounded border px-2 text-sm"
+        className="w-full sm:w-32"
       />
-      <button
+      <Button
         type="submit"
         disabled={pending || remainingCents < 1}
-        className="border-border bg-background text-text hover:bg-surface-elevated min-h-11 rounded border px-3 text-xs font-semibold disabled:opacity-60"
+        variant="outline"
+        className="w-full sm:w-auto"
       >
         {pending ? 'Registrando…' : remainingCents < 1 ? 'Pago' : 'Registrar pagamento'}
-      </button>
+      </Button>
       <span className="text-text-muted basis-full text-xs">
         Restante:{' '}
         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(

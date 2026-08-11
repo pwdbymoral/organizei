@@ -55,10 +55,18 @@ test('authentication, protected route, theme and logout @a11y @pwa', async ({ pa
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(320);
   await page.goto('/app/more');
-  await expect(page.getByLabel('Tema').getByRole('button', { name: 'Escuro' })).toBeEnabled();
-  await page.getByLabel('Tema').getByRole('button', { name: 'Escuro' }).click();
+  await expect(
+    page.getByRole('radiogroup', { name: 'Tema' }).getByRole('radio', { name: 'Escuro' }),
+  ).toBeEnabled();
+  await page
+    .getByRole('radiogroup', { name: 'Tema' })
+    .getByRole('radio', { name: 'Escuro' })
+    .click();
   await expect(page.locator('html')).toHaveClass(/dark/);
-  await page.getByLabel('Tema').getByRole('button', { name: 'Claro' }).click();
+  await page
+    .getByRole('radiogroup', { name: 'Tema' })
+    .getByRole('radio', { name: 'Claro' })
+    .click();
   await expect(page.locator('html')).not.toHaveClass(/dark/);
   await page.evaluate(async () => {
     localStorage.setItem('organizei-sensitive', 'synthetic');

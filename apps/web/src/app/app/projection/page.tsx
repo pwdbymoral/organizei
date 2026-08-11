@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { eq } from 'drizzle-orm';
 import { familyMembership } from '@organizei/database';
 import { auth } from '../../../lib/auth';
@@ -8,8 +7,9 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { AppNavigation } from '../../../components/app-navigation';
 import { AppPageHeader } from '../../../components/app-page-header';
-import { MonthlyProjectionChart } from '../../../components/monthly-projection-chart';
 import { ProjectionScenario } from '../../../components/projection-scenario';
+import { ProjectionRangeSelector } from '../../../components/projection-range-selector';
+import { MonthlyProjectionSection } from '../../../components/monthly-projection-section';
 
 const money = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const date = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
@@ -51,21 +51,7 @@ export default async function ProjectionPage({
                 {fmtMoney(chartData[chartData.length - 1]?.balanceCents ?? 0)}
               </p>
             </div>
-            <nav
-              aria-label="Horizonte da previsão"
-              className="border-border bg-background inline-flex rounded-xl border p-1"
-            >
-              {[7, 14, 30].map((value) => (
-                <Link
-                  key={value}
-                  href={`/app/projection?days=${value}`}
-                  aria-current={days === value ? 'page' : undefined}
-                  className={`rounded-lg px-3 py-2 text-sm ${days === value ? 'bg-primary text-white' : 'text-text-muted hover:text-text'}`}
-                >
-                  {value} dias
-                </Link>
-              ))}
-            </nav>
+            <ProjectionRangeSelector days={days} />
           </div>
           <ForecastChart data={chartData} />
           <p className="text-text-muted mt-3 text-sm">
@@ -98,24 +84,7 @@ export default async function ProjectionPage({
             <p className="text-text-muted mt-1 text-xs">Base usada para esta previsão.</p>
           </article>
         </section>
-        <section className="border-border bg-surface rounded-3xl border p-5 sm:p-8">
-          <h2 className="text-xl font-semibold">Próximos meses</h2>
-          <p className="text-text-muted mt-1 text-sm">
-            Uma visão rápida do saldo estimado no fim de cada mês. Valores negativos ficam abaixo da
-            linha zero.
-          </p>
-          <div className="mt-5">
-            <MonthlyProjectionChart data={data.monthlyProjection.slice(0, 6)} />
-          </div>
-          <details className="mt-5">
-            <summary className="text-primary cursor-pointer text-sm font-semibold">
-              Ver mais meses
-            </summary>
-            <div className="mt-4">
-              <MonthlyProjectionChart data={data.monthlyProjection.slice(6)} />
-            </div>
-          </details>
-        </section>
+        <MonthlyProjectionSection data={data.monthlyProjection} />
       </div>
     </main>
   );
