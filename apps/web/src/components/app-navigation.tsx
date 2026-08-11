@@ -6,7 +6,7 @@ import { ChartNoAxesCombined, Home, List, MoreHorizontal, Plus } from 'lucide-re
 
 const items = [
   { href: '/app', label: 'Início', Icon: Home },
-  { href: '/app/movements', label: 'Movimentações', Icon: List },
+  { href: '/app/movements', label: 'Transações', Icon: List },
   { href: '/app/projection', label: 'Previsão', Icon: ChartNoAxesCombined },
 ];
 
@@ -45,7 +45,7 @@ export function AppNavigation() {
       </Link>
       <Link
         href="/add"
-        aria-label="Adicionar movimentação"
+        aria-label="Nova transação"
         className="bg-primary fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-5 z-30 flex size-14 items-center justify-center rounded-full text-white shadow-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--color-primary] sm:hidden"
       >
         <Plus aria-hidden="true" className="size-6" />
