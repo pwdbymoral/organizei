@@ -1,4 +1,4 @@
-export type TimelineFilterStatus = 'all' | 'pending' | 'realized' | 'canceled' | 'overdue';
+export type TimelineFilterStatus = 'all' | 'pending' | 'realized' | 'overdue';
 export type TimelineFilterDirection = 'all' | 'income' | 'expense';
 
 export type TimelineFilterParams = {
@@ -25,7 +25,7 @@ export type FilterableMovement = {
   expectedAmountCents: number;
   plannedDate: string;
   realizedDate?: string | null;
-  status: 'pending' | 'realized' | 'canceled';
+  status: 'pending' | 'realized';
 };
 
 export function resolvePaymentDate(plannedDate: string, today: string) {
@@ -65,7 +65,7 @@ export function parseTimelineFilters(
   const direction = value('direction');
   return {
     query: value('q').trim(),
-    status: ['pending', 'realized', 'canceled', 'overdue'].includes(status)
+    status: ['pending', 'realized', 'overdue'].includes(status)
       ? (status as TimelineFilterStatus)
       : 'all',
     direction: ['income', 'expense'].includes(direction)

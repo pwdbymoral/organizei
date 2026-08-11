@@ -40,7 +40,18 @@ export function FinancialMovementActions({
         >
           Editar
         </Button>
-        {afterEdit}
+        {movement.status === 'pending' && movement.recurrenceRuleVersionId ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="text-destructive w-full"
+            onClick={() => setSurface('delete-scope')}
+          >
+            Excluir
+          </Button>
+        ) : (
+          afterEdit
+        )}
       </MovementActionSurface>
       <FinancialMovementDialogs
         spaceId={spaceId}

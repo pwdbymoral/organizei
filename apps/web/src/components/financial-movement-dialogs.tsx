@@ -1,7 +1,12 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
-import { splitRecurrenceFormAction, updateOccurrenceFormAction } from '../actions/financial';
+import {
+  deleteRecurrenceFormAction,
+  deleteRecurrenceOccurrenceFormAction,
+  splitRecurrenceFormAction,
+  updateOccurrenceFormAction,
+} from '../actions/financial';
 import { ResponsiveFormSurface } from './responsive-form-surface';
 import { Button } from './ui/button';
 import { Field, FieldGroup, FieldLabel } from './ui/field';
@@ -26,7 +31,12 @@ export type MovementDialogProps = {
   };
 };
 
-export type FinancialMovementEditSurface = 'scope' | 'occurrence' | 'series' | null;
+export type FinancialMovementEditSurface =
+  | 'scope'
+  | 'occurrence'
+  | 'series'
+  | 'delete-scope'
+  | null;
 
 function FormFeedback({
   message,
@@ -61,12 +71,31 @@ export function FinancialMovementDialogs({
     splitRecurrenceFormAction,
     initialFinancialFormState,
   );
+  const [deleteSeriesState, deleteSeriesAction, deleteSeriesPending] = useActionState(
+    deleteRecurrenceFormAction,
+    initialFinancialFormState,
+  );
+  const [deleteOccurrenceState, deleteOccurrenceAction, deleteOccurrencePending] = useActionState(
+    deleteRecurrenceOccurrenceFormAction,
+    initialFinancialFormState,
+  );
 
   useEffect(() => {
-    if (occurrenceState.status === 'success' || seriesState.status === 'success') {
+    if (
+      occurrenceState.status === 'success' ||
+      seriesState.status === 'success' ||
+      deleteSeriesState.status === 'success' ||
+      deleteOccurrenceState.status === 'success'
+    ) {
       onSurfaceChange(null);
     }
-  }, [occurrenceState.status, onSurfaceChange, seriesState.status]);
+  }, [
+    deleteSeriesState.status,
+    deleteOccurrenceState.status,
+    occurrenceState.status,
+    onSurfaceChange,
+    seriesState.status,
+  ]);
 
   const isOpen = surface !== null;
   const title =
@@ -74,15 +103,19 @@ export function FinancialMovementDialogs({
       ? `O que deseja editar em ${movement.description}?`
       : surface === 'occurrence'
         ? 'Editar transação'
-        : seriesScope === 'all'
-          ? 'Editar todas as futuras'
-          : 'Editar esta e as próximas';
+        : surface === 'delete-scope'
+          ? `Excluir ${movement.description}?`
+          : seriesScope === 'all'
+            ? 'Editar todas as futuras'
+            : 'Editar esta e as próximas';
   const description =
     surface === 'scope'
       ? 'Escolha quais ocorrências devem receber esta alteração.'
       : surface === 'occurrence'
         ? 'Ajuste os detalhes desta transação.'
-        : 'Ocorrências já realizadas permanecem intactas.';
+        : surface === 'delete-scope'
+          ? 'Escolha se deseja excluir esta ocorrência ou também as próximas.'
+          : 'Ocorrências já realizadas permanecem intactas.';
 
   return (
     <ResponsiveFormSurface
@@ -129,6 +162,38 @@ export function FinancialMovementDialogs({
               Todas as futuras ocorrências
             </Button>
           )}
+        </div>
+      )}
+      {surface === 'delete-scope' && movement.recurrenceRuleVersionId && (
+        <div className="grid gap-3">
+          <form action={deleteOccurrenceAction}>
+            <input type="hidden" name="spaceId" value={spaceId} />
+            <input type="hidden" name="ruleId" value={movement.recurrenceRuleVersionId} />
+            <input type="hidden" name="effectiveFrom" value={movement.plannedDate} />
+            <Button
+              type="submit"
+              variant="outline"
+              className="min-h-11 w-full justify-start"
+              disabled={deleteOccurrencePending}
+            >
+              Somente esta transação
+            </Button>
+          </form>
+          <form action={deleteSeriesAction}>
+            <input type="hidden" name="spaceId" value={spaceId} />
+            <input type="hidden" name="ruleId" value={movement.recurrenceRuleVersionId} />
+            <input type="hidden" name="effectiveFrom" value={movement.plannedDate} />
+            <Button
+              type="submit"
+              variant="outline"
+              className="min-h-11 w-full justify-start"
+              disabled={deleteSeriesPending}
+            >
+              Esta e as próximas
+            </Button>
+          </form>
+          <FormFeedback {...deleteSeriesState} />
+          <FormFeedback {...deleteOccurrenceState} />
         </div>
       )}
       {surface === 'occurrence' && (

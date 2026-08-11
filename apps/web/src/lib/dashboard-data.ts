@@ -5,7 +5,7 @@ import {
   financialPayment,
   recurrenceRuleVersion,
 } from '@organizei/database';
-import { desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne } from 'drizzle-orm';
 import {
   calculateCashSummary,
   calculateDailyProjectionWithPayments,
@@ -32,7 +32,7 @@ export async function getDashboardData(
     orderBy: desc(confirmedBalance.confirmedAt),
   });
   const movements = await db.query.financialMovement.findMany({
-    where: eq(financialMovement.spaceId, spaceId),
+    where: and(eq(financialMovement.spaceId, spaceId), ne(financialMovement.status, 'canceled')),
     orderBy: desc(financialMovement.plannedDate),
   });
   const payments = movements.length
@@ -59,7 +59,7 @@ export async function getDashboardData(
     direction: m.direction as 'income' | 'expense',
     expectedAmountCents: m.expectedAmountCents,
     plannedDate: m.plannedDate,
-    status: m.status as 'pending' | 'realized' | 'canceled',
+    status: m.status as 'pending' | 'realized',
     realizedAmountCents: m.realizedAmountCents,
     realizedDate: m.realizedDate,
     categoryId: m.categoryId,
@@ -93,7 +93,6 @@ export async function getDashboardData(
   const recentMovements = normalizedMovements.slice(0, 5);
   const monthlyTotals = new Map<string, { incomeCents: number; expenseCents: number }>();
   for (const movement of normalizedMovements) {
-    if (movement.status === 'canceled') continue;
     const month = movement.plannedDate.slice(0, 7);
     const totals = monthlyTotals.get(month) ?? { incomeCents: 0, expenseCents: 0 };
     totals[movement.direction === 'income' ? 'incomeCents' : 'expenseCents'] +=
