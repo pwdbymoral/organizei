@@ -27,6 +27,7 @@ export default async function ProjectionPage({
   if (!membership) redirect('/app');
   const data = await getDashboardData(membership.spaceId, session.user.id);
   if (!data.lastBalance) redirect('/onboarding');
+  if (!data.lastBalance.balanceMode) redirect('/recalibrate');
   const requested = Number((await searchParams)?.days);
   const days = [7, 14, 30].includes(requested) ? requested : 14;
   const chartData = data.projection.daily.slice(0, days).map((point) => ({

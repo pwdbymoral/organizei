@@ -1,0 +1,2 @@
+ALTER TABLE "confirmed_balances" ADD COLUMN "balance_mode" text;--> statement-breakpoint
+ALTER TABLE "confirmed_balances" ADD CONSTRAINT "confirmed_balance_mode_check" CHECK ("confirmed_balances"."balance_mode" in ('reconstruct_history', 'confirmed_checkpoint') OR "confirmed_balances"."balance_mode" IS NULL);

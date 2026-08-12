@@ -197,6 +197,7 @@ export const confirmedBalance = pgTable(
       .notNull()
       .references(() => familySpace.id, { onDelete: 'cascade' }),
     amountCents: integer('amount_cents').notNull(),
+    balanceMode: text('balance_mode'),
     confirmedAt: timestamp('confirmed_at', { withTimezone: true }).notNull(),
     authorId: text('author_id')
       .notNull()
@@ -205,6 +206,10 @@ export const confirmedBalance = pgTable(
   },
   (table) => [
     check('confirmed_balance_amount_nonnegative', sql`${table.amountCents} >= 0`),
+    check(
+      'confirmed_balance_mode_check',
+      sql`${table.balanceMode} in ('reconstruct_history', 'confirmed_checkpoint') OR ${table.balanceMode} IS NULL`,
+    ),
     index('confirmed_balance_space_id_idx').on(table.spaceId),
   ],
 );

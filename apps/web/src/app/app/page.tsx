@@ -32,6 +32,7 @@ export default async function Dashboard() {
 
   const data = await getDashboardData(membership.spaceId, session.user.id);
   if (!data.lastBalance) redirect('/onboarding');
+  if (!data.lastBalance.balanceMode) redirect('/recalibrate');
 
   const upcoming = data.normalizedMovements
     .filter((movement) => movement.status === 'pending')
