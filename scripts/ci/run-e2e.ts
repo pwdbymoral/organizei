@@ -1,15 +1,14 @@
 import { createWriteStream, mkdirSync } from 'node:fs';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
+import { e2eProjects, runInParallel, type E2eProject } from './e2e-contract';
 
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= `${process.cwd()}/.cache/ms-playwright`;
 
-const projects = ['chromium', 'webkit'] as const;
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
 const serverLog = process.env.E2E_SERVER_LOG ?? '/tmp/organizei-e2e-server.log';
 const outputDirectory = 'test-results';
 
-type Project = (typeof projects)[number];
 const activePlaywrightProcesses = new Set<ChildProcess>();
 
 function runCommand(command: string, args: string[]): Promise<number> {
@@ -71,7 +70,7 @@ async function waitForApplication(server: ChildProcess): Promise<void> {
   throw new Error(`Aplicação não ficou disponível em ${baseUrl}.`);
 }
 
-async function runPlaywright(project: Project): Promise<number> {
+async function runPlaywright(project: E2eProject): Promise<number> {
   const logPath = `${outputDirectory}/${project}.log`;
   const log = createWriteStream(logPath);
   const child = spawn(
@@ -139,7 +138,7 @@ async function main(): Promise<void> {
   try {
     await waitForApplication(server);
 
-    const results = await Promise.all(projects.map(runPlaywright));
+    const results = await runInParallel(e2eProjects, runPlaywright);
     const failed = results.filter((code) => code !== 0);
     if (failed.length > 0) {
       throw new Error(`${failed.length} projeto(s) Playwright falharam.`);

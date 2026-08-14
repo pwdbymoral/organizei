@@ -1,4 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises';
+import { e2eProjects } from './e2e-contract';
 
 const workflowDirectory = '.github/workflows';
 const sha = /^[a-f0-9]{40}$/;
@@ -40,14 +41,8 @@ async function main(): Promise<void> {
         throw new Error('ci.yml: E2E job must use the shared TypeScript runner.');
       }
 
-      const e2eRunner = await readFile('scripts/ci/run-e2e.ts', 'utf8');
-      for (const project of ['chromium', 'webkit']) {
-        if (!e2eRunner.includes(`'${project}'`)) {
-          throw new Error(`run-e2e.ts: ${project} must be started by the shared runner.`);
-        }
-      }
-      if (!e2eRunner.includes('Promise.all(projects.map(runPlaywright))')) {
-        throw new Error('run-e2e.ts: browser projects must run concurrently.');
+      if (e2eProjects.length !== 2) {
+        throw new Error('e2e-contract.ts: exactly two browser projects are required.');
       }
 
       const e2eSection = content.split('e2e:')[1];
