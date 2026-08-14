@@ -24,37 +24,28 @@ async function main(): Promise<void> {
     }
 
     if (file === 'ci.yml') {
-      const pkg = JSON.parse(await readFile('package.json', 'utf8'));
-      const expectedPlaywrightVersion =
-        pkg.devDependencies?.['@playwright/test'] || pkg.dependencies?.['@playwright/test'];
-      if (!expectedPlaywrightVersion)
-        throw new Error('Could not find @playwright/test version in package.json');
-
-      const imageRegex = new RegExp(
-        `image:\\s*mcr\\.microsoft\\.com/playwright:v${expectedPlaywrightVersion}-noble(?:@sha256:[a-f0-9]{64})?`,
-      );
-      if (!imageRegex.test(content)) {
-        throw new Error(
-          `ci.yml: E2E container image must be exactly mcr.microsoft.com/playwright:v${expectedPlaywrightVersion}-noble (optionally with sha256 digest).`,
-        );
+      if (!content.includes('runs-on: ubuntu-24.04')) {
+        throw new Error('ci.yml: E2E job must use the pinned native Ubuntu runner.');
+      }
+      if (!content.includes('pnpm e2e:setup')) {
+        throw new Error('ci.yml: E2E job must prepare Playwright explicitly.');
+      }
+      if (!content.includes('pnpm exec tsx scripts/ci/run-e2e.ts')) {
+        throw new Error('ci.yml: E2E job must use the shared TypeScript runner.');
       }
 
-      if (!/options:\s*--user\s+\d+/.test(content)) {
-        throw new Error(
-          'ci.yml: E2E container must specify a non-root user (options: --user 1001).',
-        );
+      const e2eRunner = await readFile('scripts/ci/run-e2e.ts', 'utf8');
+      for (const project of ['chromium', 'webkit']) {
+        if (!e2eRunner.includes(`'${project}'`)) {
+          throw new Error(`run-e2e.ts: ${project} must be started by the shared runner.`);
+        }
       }
-
-      if (/playwright\s+install/.test(content)) {
-        throw new Error('ci.yml: "playwright install" is forbidden.');
+      if (!e2eRunner.includes('Promise.all(projects.map(runPlaywright))')) {
+        throw new Error('run-e2e.ts: browser projects must run concurrently.');
       }
 
       const e2eSection = content.split('e2e:')[1];
       if (e2eSection) {
-        if (/services:\s*\n\s+postgres:[\s\S]*?\n\s+ports:/.test(e2eSection)) {
-          throw new Error('ci.yml: E2E PostgreSQL service must not publish ports.');
-        }
-
         const timeoutMatch = e2eSection.match(/timeout-minutes:\s*(\d+)/);
         if (timeoutMatch) {
           const timeout = parseInt(timeoutMatch[1], 10);

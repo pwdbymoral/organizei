@@ -18,11 +18,8 @@ jobs:
         with: { node-version: 24.16.0, cache: pnpm }
       - run: corepack enable && pnpm install --frozen-lockfile && pnpm verify
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
-    container:
-      image: mcr.microsoft.com/playwright:v1.57.0-noble@sha256:3bed4b1a12f2338642f3d8cba28e291deef3c66bd4a964bbeb3e57bbff511dbd
-      options: --user 1001
     services:
       postgres:
         image: postgres:17-alpine
@@ -35,10 +32,15 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U organizei -d organizei"
           --health-interval 5s --health-timeout 3s --health-retries 20
+        ports:
+          - 5432:5432
     env:
-      DATABASE_URL: postgresql://organizei:organizei_local_only@postgres:5432/organizei
+      DATABASE_URL: postgresql://organizei:organizei_local_only@127.0.0.1:5432/organizei
       BETTER_AUTH_URL: http://127.0.0.1:3000
+      E2E_BASE_URL: http://127.0.0.1:3000
+      E2E_SERVER_LOG: /tmp/server.log
       ORGANIZEI_E2E: 'true'
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.cache/ms-playwright
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
@@ -55,71 +57,14 @@ jobs:
           pnpm install --frozen-lockfile
           end_time=$(date +%s)
           echo "Installation took $((end_time - start_time)) seconds."
-      - name: Prepare Database
-        run: |
-          start_time=$(date +%s)
-          pnpm --filter @organizei/database exec tsx -e "
-            import { Client } from 'pg';
-            const client = new Client({ connectionString: process.env.DATABASE_URL });
-            client.connect()
-              .then(() => {
-                console.log('DB is ready');
-                client.end();
-              })
-              .catch(e => {
-                console.error(e);
-                process.exit(1);
-              });
-          "
-          end_time=$(date +%s)
-          echo "Database preparation took $((end_time - start_time)) seconds."
-      - name: Run Migrations
-        run: |
-          start_time=$(date +%s)
-          pnpm db:migrate
-          end_time=$(date +%s)
-          echo "Migrations took $((end_time - start_time)) seconds."
-      - name: Run Seed
-        run: |
-          start_time=$(date +%s)
-          pnpm db:seed
-          end_time=$(date +%s)
-          echo "Seed took $((end_time - start_time)) seconds."
-      - name: Start Application
+      - name: Prepare Playwright
+        timeout-minutes: 10
+        run: pnpm e2e:setup
+      - name: Run E2E suite
+        timeout-minutes: 15
         env:
           RUNNER_TRACKING_ID: ''
-        run: |
-          pnpm dev > /tmp/server.log 2>&1 &
-      - name: Wait for Application Health Check
-        run: |
-          start_time=$(date +%s)
-          i=1
-          while [ $i -le 60 ]; do
-            if curl -s http://127.0.0.1:3000 > /dev/null; then
-              end_time=$(date +%s)
-              echo "App started in $((end_time - start_time)) seconds."
-              exit 0
-            fi
-            echo "Waiting for app to start... ($i/60)"
-            sleep 1
-            i=$((i + 1))
-          done
-          echo "App failed to start"
-          exit 1
-      - name: Run Chromium Tests
-        timeout-minutes: 15
-        run: |
-          start_time=$(date +%s)
-          pnpm exec playwright test --project=chromium --workers=1
-          end_time=$(date +%s)
-          echo "Chromium tests took $((end_time - start_time)) seconds."
-      - name: Run WebKit Tests
-        timeout-minutes: 15
-        run: |
-          start_time=$(date +%s)
-          pnpm exec playwright test --project=webkit --workers=1
-          end_time=$(date +%s)
-          echo "WebKit tests took $((end_time - start_time)) seconds."
+        run: pnpm exec tsx scripts/ci/run-e2e.ts
       - name: Print Server Log on Failure
         if: failure()
         run: |
