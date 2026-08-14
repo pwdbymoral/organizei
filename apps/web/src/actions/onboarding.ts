@@ -3,7 +3,7 @@
 import { db, familyMembership, userPreferences } from '@organizei/database';
 import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
-import { confirmBalanceCore } from '../lib/financial-core';
+import { createOpeningBalanceCore } from '../lib/financial-core';
 import { requireAuth, type FinancialFormState } from './financial';
 
 function parseAmount(value: FormDataEntryValue | null) {
@@ -27,15 +27,10 @@ export async function completeOnboarding(
     });
     if (!membership) throw new Error('Espaço familiar não encontrado.');
 
-    const balanceMode = String(formData.get('balanceMode'));
-    if (balanceMode !== 'reconstruct_history' && balanceMode !== 'confirmed_checkpoint') {
-      throw new Error('Escolha como o saldo inicial deve ser calculado.');
-    }
-    await confirmBalanceCore(
+    await createOpeningBalanceCore(
       membership.spaceId,
       parseAmount(formData.get('amount')),
       user.id,
-      balanceMode,
     );
     const registrationReminder = formData.get('registrationReminder') === 'on';
     const reminderTime = String(formData.get('registrationReminderTime') ?? '20:00');
@@ -65,36 +60,6 @@ export async function completeOnboarding(
     return {
       status: 'error',
       message: error instanceof Error ? error.message : 'Não foi possível concluir a configuração.',
-    };
-  }
-}
-
-export async function completeBalanceRecalibration(
-  _previous: FinancialFormState,
-  formData: FormData,
-): Promise<FinancialFormState> {
-  try {
-    const user = await requireAuth();
-    const membership = await db.query.familyMembership.findFirst({
-      where: eq(familyMembership.userId, user.id),
-    });
-    if (!membership) throw new Error('Espaço familiar não encontrado.');
-    const current = await db.query.confirmedBalance.findFirst({
-      where: (table, { eq }) => eq(table.spaceId, membership.spaceId),
-      orderBy: (table, { desc }) => desc(table.confirmedAt),
-    });
-    if (!current) throw new Error('Nenhum saldo inicial encontrado.');
-    const balanceMode = String(formData.get('balanceMode'));
-    if (balanceMode !== 'reconstruct_history' && balanceMode !== 'confirmed_checkpoint') {
-      throw new Error('Escolha como o saldo deve ser calculado.');
-    }
-    await confirmBalanceCore(membership.spaceId, current.amountCents, user.id, balanceMode);
-    revalidatePath('/app');
-    return { status: 'success', message: 'Forma de cálculo atualizada.' };
-  } catch (error) {
-    return {
-      status: 'error',
-      message: error instanceof Error ? error.message : 'Não foi possível atualizar o saldo.',
     };
   }
 }

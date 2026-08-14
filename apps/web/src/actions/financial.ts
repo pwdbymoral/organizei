@@ -7,7 +7,6 @@ import {
   type MovementInput,
   type MovementUpdate,
   type RecurrenceInput,
-  confirmBalanceCore,
   createBalanceAdjustmentCore,
   createMovementCore,
   deleteMovementCore,
@@ -23,9 +22,9 @@ import {
   updateMovementCore,
   clearFinancialWorkspaceCore,
   importFinancialCsvCore,
+  createOpeningBalanceCore,
 } from '../lib/financial-core';
 import { toCivilDate } from '@organizei/domain';
-import type { BalanceMode } from '@organizei/domain';
 
 export async function requireAuth() {
   const session = await auth.api.getSession({
@@ -38,10 +37,9 @@ export async function requireAuth() {
 export async function confirmBalance(
   spaceId: string,
   amountCents: number,
-  balanceMode: BalanceMode = 'confirmed_checkpoint',
 ) {
   const user = await requireAuth();
-  return confirmBalanceCore(spaceId, amountCents, user.id, balanceMode);
+  return createOpeningBalanceCore(spaceId, amountCents, user.id);
 }
 
 export async function createBalanceAdjustment(

@@ -49,7 +49,6 @@ export default async function MovementsPage({
   if (!membership) redirect('/app');
   const spaceId = membership.spaceId;
   const data = await getDashboardData(spaceId, session.user.id);
-  if (data.lastBalance && !data.lastBalance.balanceMode) redirect('/recalibrate');
   if (!data.lastBalance) redirect('/onboarding');
   const params = (await searchParams) ?? {};
   const filters = parseTimelineFilters(params);

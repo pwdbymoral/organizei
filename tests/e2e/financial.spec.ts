@@ -8,7 +8,7 @@ import {
   familyMembership,
   financialMovement,
   financialPayment,
-  confirmedBalance,
+  openingBalance,
 } from '../../packages/database/src/index';
 import { hashPassword } from 'better-auth/crypto';
 import { randomUUID } from 'node:crypto';
@@ -85,22 +85,18 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
       { id: randomUUID(), spaceId: space1Id, userId: userBId, role: 'member' },
       { id: randomUUID(), spaceId: space2Id, userId: userCId, role: 'admin' },
     ]);
-    await db.insert(confirmedBalance).values([
+    await db.insert(openingBalance).values([
       {
-        id: randomUUID(),
         spaceId: space1Id,
         amountCents: 0,
-        balanceMode: 'confirmed_checkpoint',
+        effectiveAt: new Date(),
         authorId: userAId,
-        confirmedAt: new Date(),
       },
       {
-        id: randomUUID(),
         spaceId: space2Id,
         amountCents: 0,
-        balanceMode: 'confirmed_checkpoint',
+        effectiveAt: new Date(),
         authorId: userCId,
-        confirmedAt: new Date(),
       },
     ]);
   });

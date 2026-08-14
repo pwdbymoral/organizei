@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { db, familyMembership, confirmedBalance } from '@organizei/database';
+import { db, familyMembership, openingBalance } from '@organizei/database';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { auth } from '../../lib/auth';
@@ -13,8 +13,8 @@ export default async function OnboardingPage() {
     where: eq(familyMembership.userId, session.user.id),
   });
   if (!membership) redirect('/app');
-  const balance = await db.query.confirmedBalance.findFirst({
-    where: eq(confirmedBalance.spaceId, membership.spaceId),
+  const balance = await db.query.openingBalance.findFirst({
+    where: eq(openingBalance.spaceId, membership.spaceId),
   });
   if (balance) redirect('/app');
 

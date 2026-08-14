@@ -29,7 +29,6 @@ export default async function BalancePage() {
   if (!membership) redirect('/app');
   const data = await getDashboardData(membership.spaceId, session.user.id);
   if (!data.lastBalance) redirect('/onboarding');
-  if (!data.lastBalance.balanceMode) redirect('/recalibrate');
   async function save(formData: FormData) {
     'use server';
     const amount = Number(String(formData.get('amount')).replace(',', '.'));
@@ -49,11 +48,11 @@ export default async function BalancePage() {
           <AppPageHeader
             title="Saldo"
             description="Confira o caixa quando o valor do app e o valor real não coincidirem."
-            context="Conferência"
+            context="Ajuste do caixa"
           />
           <Card className="mt-5">
             <CardHeader>
-              <CardTitle>Conferir saldo atual</CardTitle>
+              <CardTitle>Corrigir saldo atual</CardTitle>
               <CardDescription>
                 Isso cria um ajuste no histórico e recalibra as previsões sem apagar suas
                 transações.
@@ -70,7 +69,7 @@ export default async function BalancePage() {
                 . O app registra somente a diferença.
               </p>
               <form action={save} className="grid gap-4">
-                <Label htmlFor="amount">Saldo encontrado agora</Label>
+                <Label htmlFor="amount">Saldo real agora</Label>
                 <Input
                   id="amount"
                   name="amount"
@@ -79,7 +78,7 @@ export default async function BalancePage() {
                   placeholder="R$ 0,00"
                   required
                 />
-                <Button className="min-h-12">Salvar conferência</Button>
+                <Button className="min-h-12">Registrar ajuste</Button>
               </form>
             </CardContent>
           </Card>

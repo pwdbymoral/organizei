@@ -7,6 +7,7 @@ import {
   financialPayment,
   recurrenceRuleVersion,
   recurrenceSeries,
+  openingBalance,
 } from '@organizei/database';
 import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
@@ -16,7 +17,6 @@ import {
   remainingAmountCents,
   toCivilDate,
   type RecurrenceCadence,
-  type BalanceMode,
 } from '@organizei/domain';
 import { parseCsvMoney, parseFinancialCsv } from './csv-import';
 
@@ -122,17 +122,17 @@ export async function clearFinancialWorkspaceCore(spaceId: string, userId: strin
         ),
       );
     await tx.delete(recurrenceSeries).where(eq(recurrenceSeries.spaceId, spaceId));
+    await tx.delete(openingBalance).where(eq(openingBalance.spaceId, spaceId));
     await tx.delete(confirmedBalance).where(eq(confirmedBalance.spaceId, spaceId));
     await tx.delete(financialAuditLog).where(eq(financialAuditLog.spaceId, spaceId));
     return { cleared: true };
   });
 }
 
-export async function confirmBalanceCore(
+export async function createOpeningBalanceCore(
   spaceId: string,
   amountCents: number,
   userId: string,
-  balanceMode: BalanceMode = 'confirmed_checkpoint',
 ) {
   if (!Number.isSafeInteger(amountCents) || amountCents < 0 || amountCents > MAX_CENTS) {
     throw new Error('Saldo deve ser um valor válido em centavos.');
@@ -141,14 +141,12 @@ export async function confirmBalanceCore(
 
   return db.transaction(async (tx) => {
     const [created] = await tx
-      .insert(confirmedBalance)
+      .insert(openingBalance)
       .values({
-        id: randomUUID(),
         spaceId,
         amountCents,
-        balanceMode,
         authorId: userId,
-        confirmedAt: new Date(),
+        effectiveAt: new Date(),
       })
       .returning();
 
@@ -156,15 +154,19 @@ export async function confirmBalanceCore(
       id: randomUUID(),
       spaceId,
       authorId: userId,
-      action: 'confirmed_balance.create',
+      action: 'opening_balance.create',
       changes: JSON.stringify({
         amountCents,
-        balanceMode,
-        confirmedAt: created!.confirmedAt.toISOString(),
+        effectiveAt: created!.effectiveAt.toISOString(),
       }),
     });
     return created!;
   });
+}
+
+/** @deprecated Compatibility alias for callers that still use the old name. */
+export async function confirmBalanceCore(spaceId: string, amountCents: number, userId: string) {
+  return createOpeningBalanceCore(spaceId, amountCents, userId);
 }
 
 /** Records only the difference between the calculated balance and the user's real balance. */
@@ -185,11 +187,10 @@ export async function createBalanceAdjustmentCore(
   await verifyMembership(spaceId, userId);
 
   return db.transaction(async (tx) => {
-    const checkpoint = await tx.query.confirmedBalance.findFirst({
-      where: eq(confirmedBalance.spaceId, spaceId),
-      orderBy: (table, { desc }) => desc(table.confirmedAt),
+    const opening = await tx.query.openingBalance.findFirst({
+      where: eq(openingBalance.spaceId, spaceId),
     });
-    if (!checkpoint) throw new Error('Nenhum saldo inicial encontrado.');
+    if (!opening) throw new Error('Nenhum saldo inicial encontrado.');
     const movements = await tx.query.financialMovement.findMany({
       where: eq(financialMovement.spaceId, spaceId),
     });
@@ -207,16 +208,11 @@ export async function createBalanceAdjustmentCore(
       direction: movement.direction as 'income' | 'expense',
       status: movement.status as 'pending' | 'realized' | 'canceled',
     }));
-    const normalizedCheckpoint = {
-      ...checkpoint,
-      balanceMode: checkpoint.balanceMode as BalanceMode | null,
-    };
     const currentAmountCents = calculateCurrentBalanceCents(
-      normalizedCheckpoint,
+      opening,
       today,
       normalizedMovements,
       payments,
-      checkpoint.balanceMode as BalanceMode | undefined,
     );
     const differenceCents = targetAmountCents - currentAmountCents;
     if (differenceCents === 0) return null;

@@ -1,5 +1,5 @@
 import {
-  confirmedBalance,
+  openingBalance,
   db,
   financialMovement,
   financialPayment,
@@ -11,7 +11,6 @@ import {
   calculateDailyProjectionWithPayments,
   calculateMonthlyProjectionWithPayments,
   toCivilDate,
-  type BalanceMode,
 } from '@organizei/domain';
 import { materializeSpaceRecurrencesCore } from './financial-core';
 
@@ -28,13 +27,9 @@ export async function getDashboardData(
     userId,
   );
 
-  const rawLastBalance = await db.query.confirmedBalance.findFirst({
-    where: eq(confirmedBalance.spaceId, spaceId),
-    orderBy: desc(confirmedBalance.confirmedAt),
+  const lastBalance = await db.query.openingBalance.findFirst({
+    where: eq(openingBalance.spaceId, spaceId),
   });
-  const lastBalance = rawLastBalance
-    ? { ...rawLastBalance, balanceMode: rawLastBalance.balanceMode as BalanceMode | null }
-    : null;
   const movements = await db.query.financialMovement.findMany({
     where: and(eq(financialMovement.spaceId, spaceId), ne(financialMovement.status, 'canceled')),
     orderBy: desc(financialMovement.plannedDate),
@@ -77,7 +72,7 @@ export async function getDashboardData(
   const activeBalance = lastBalance ?? {
     spaceId,
     amountCents: 0,
-    confirmedAt: new Date(`${today}T00:00:00Z`),
+    effectiveAt: new Date(`${today}T00:00:00Z`),
     authorId: userId,
     createdAt: new Date(),
   };
