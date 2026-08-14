@@ -5,6 +5,20 @@ const workflowDirectory = '.github/workflows';
 const sha = /^[a-f0-9]{40}$/;
 
 async function main(): Promise<void> {
+  const packageJson = JSON.parse(await readFile('package.json', 'utf8')) as {
+    scripts?: Record<string, string>;
+  };
+  const expectedE2eScripts = {
+    'test:e2e:local': 'tsx scripts/ci/e2e-local.ts',
+    'e2e:setup': 'tsx scripts/ci/e2e-setup.ts',
+    'e2e:doctor': 'tsx scripts/ci/e2e-doctor.ts',
+  };
+  for (const [name, expected] of Object.entries(expectedE2eScripts)) {
+    if (packageJson.scripts?.[name] !== expected) {
+      throw new Error(`package.json: ${name} must use ${expected}.`);
+    }
+  }
+
   const files = (await readdir(workflowDirectory)).filter((file) => /\.ya?ml$/.test(file));
   for (const file of files) {
     const content = await readFile(`${workflowDirectory}/${file}`, 'utf8');
