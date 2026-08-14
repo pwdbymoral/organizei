@@ -42,6 +42,8 @@ describe('administrative CLI with PostgreSQL', () => {
     container = await new GenericContainer('postgres:17-alpine')
       .withEnvironment({ POSTGRES_DB: 'test', POSTGRES_USER: 'test', POSTGRES_PASSWORD: 'test' })
       .withExposedPorts(5432)
+      .withSharedMemorySize(256 * 1024 * 1024)
+      .withStartupTimeout(120_000)
       .withWaitStrategy(Wait.forLogMessage('database system is ready to accept connections'))
       .start();
     databaseUrl = `postgresql://test:test@${container.getHost()}:${container.getMappedPort(5432)}/test`;
