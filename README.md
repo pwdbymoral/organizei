@@ -12,4 +12,11 @@ Copie `.env.example` para `.env`, inicie `docker compose up -d db`, execute `pnp
 
 ## Validar
 
-`pnpm verify` executa os checks obrigatórios; `pnpm verify:e2e` executa E2E. Consulte [docs](docs/index.md), [contribuição](CONTRIBUTING.md) e [segurança](SECURITY.md). Licença MIT.
+`pnpm verify` executa os checks obrigatórios. Antes do primeiro E2E, o usuário deve preparar manualmente os browsers e as dependências nativas do WebKit em um terminal interativo:
+
+```bash
+sudo -v
+pnpm e2e:setup
+```
+
+Depois disso, `pnpm verify:e2e` executa os E2E e `pnpm verify:all` executa todos os gates locais. O agente não consegue responder ao prompt de senha do `sudo` sozinho. Consulte [docs](docs/index.md), [desenvolvimento local](docs/operations/local-development.md), [contribuição](CONTRIBUTING.md) e [segurança](SECURITY.md). Licença MIT.

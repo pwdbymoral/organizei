@@ -1,6 +1,6 @@
 # Desenvolvimento local
 
-Requisitos: Node 24+, pnpm 11+ e Docker Compose.
+Requisitos: Node 24+, pnpm 11+, Linux Ubuntu 24.04 (ou compatível) e Docker Compose para o PostgreSQL isolado.
 
 O caminho recomendado é:
 
@@ -23,6 +23,29 @@ Após o seed, entre em `http://localhost:3000/login` com `ana@example.test` e `s
 Comandos úteis:
 
 - `pnpm test`: unitários e integração;
-- `pnpm test:e2e:docker`: fluxo E2E com banco isolado e Playwright;
+- `pnpm e2e:setup`: instala Chromium, WebKit e dependências nativas no cache local;
+- `pnpm e2e:doctor`: verifica se o bootstrap E2E está pronto;
+- `pnpm verify:e2e`: fluxo E2E completo com browsers nativos e PostgreSQL isolado;
+- `pnpm verify:all`: todas as verificações locais equivalentes aos gates do CI;
 - `pnpm verify`: formatação, lint, tipos, testes, banco e build;
 - `pnpm security:check`: auditoria de dependências.
+
+## Verificação completa
+
+O comando recomendado para agentes é:
+
+```bash
+pnpm verify:all
+```
+
+O E2E usa browsers instalados no host em `.cache/ms-playwright`, não uma imagem Docker Playwright nem o banco de desenvolvimento. O Compose cria apenas um PostgreSQL efêmero na porta `55433`. A primeira execução de `pnpm e2e:setup` instala browsers e dependências do sistema; as execuções seguintes usam o cache local. O runner TypeScript inicia Chromium e WebKit em paralelo contra o mesmo servidor e banco, separando os outputs em `test-results/chromium` e `test-results/webkit`.
+
+No primeiro bootstrap Linux, `pnpm e2e:setup` precisa de APT e permissão `sudo` para instalar as bibliotecas nativas do WebKit. Se o ambiente não permitir sudo, prepare essas dependências administrativamente antes de executar o comando.
+
+Para diagnosticar apenas o E2E:
+
+```bash
+pnpm verify:e2e
+```
+
+Se o bootstrap estiver ausente, `pnpm verify:e2e` falha rapidamente e instrui a executar `pnpm e2e:setup`; ele não inicia downloads implícitos.

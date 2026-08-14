@@ -20,10 +20,10 @@ importers:
     devDependencies:
       '@axe-core/playwright':
         specifier: 4.11.0
-        version: 4.11.0(playwright-core@1.57.0)
+        version: 4.11.0(playwright-core@1.60.0)
       '@playwright/test':
-        specifier: 1.57.0
-        version: 1.57.0
+        specifier: 1.60.0
+        version: 1.60.0
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1
@@ -107,7 +107,7 @@ importers:
         version: link:../../packages/ui
       better-auth:
         specifier: 1.6.26
-        version: 1.6.26(drizzle-kit@0.31.4)(drizzle-orm@0.45.2(@types/pg@8.15.6)(kysely@0.29.4)(pg@8.16.3))(next@16.3.0(@babel/core@7.29.7)(@playwright/test@1.57.0)(@types/node@24.10.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(pg@8.16.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@4.1.10(@types/node@24.10.1)(jsdom@27.1.0)(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.30.2)(tsx@4.20.6)(yaml@2.9.0)))
+        version: 1.6.26(drizzle-kit@0.31.4)(drizzle-orm@0.45.2(@types/pg@8.15.6)(kysely@0.29.4)(pg@8.16.3))(next@16.3.0(@babel/core@7.29.7)(@playwright/test@1.60.0)(@types/node@24.10.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(pg@8.16.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@4.1.10(@types/node@24.10.1)(jsdom@27.1.0)(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.30.2)(tsx@4.20.6)(yaml@2.9.0)))
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -122,7 +122,7 @@ importers:
         version: 0.468.0(react@19.2.4)
       next:
         specifier: 16.3.0
-        version: 16.3.0(@babel/core@7.29.7)(@playwright/test@1.57.0)(@types/node@24.10.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 16.3.0(@babel/core@7.29.7)(@playwright/test@1.60.0)(@types/node@24.10.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       next-themes:
         specifier: 0.4.6
         version: 0.4.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -177,7 +177,7 @@ importers:
     dependencies:
       better-auth:
         specifier: 1.6.26
-        version: 1.6.26(drizzle-kit@0.31.4)(drizzle-orm@0.45.2(@types/pg@8.15.6)(kysely@0.29.4)(pg@8.16.3))(next@16.3.0(@babel/core@7.29.7)(@playwright/test@1.57.0)(@types/node@24.10.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(pg@8.16.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@4.1.10(@types/node@24.10.1)(jsdom@27.1.0)(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.30.2)(tsx@4.20.6)(yaml@2.9.0)))
+        version: 1.6.26(drizzle-kit@0.31.4)(drizzle-orm@0.45.2(@types/pg@8.15.6)(kysely@0.29.4)(pg@8.16.3))(next@16.3.0(@babel/core@7.29.7)(@playwright/test@1.60.0)(@types/node@24.10.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(pg@8.16.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@4.1.10(@types/node@24.10.1)(jsdom@27.1.0)(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.30.2)(tsx@4.20.6)(yaml@2.9.0)))
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@types/pg@8.15.6)(kysely@0.29.4)(pg@8.16.3)
@@ -1516,10 +1516,10 @@ packages:
       }
     engines: { node: '>=14' }
 
-  '@playwright/test@1.57.0':
+  '@playwright/test@1.60.0':
     resolution:
       {
-        integrity: sha512-6TyEnHgd6SArQO8UO2OMTxshln3QMWBtPGrOCgs3wVEmQmwyuNtB10IZMfmYDE0riwNR1cu4q+pPcxMVtaG3TA==,
+        integrity: sha512-O71yZIbAh/PxDMNGns37GHBIfrVkEVyn+AXyIa5dOTfb4/xNvRWV+Vv/NMbNCtODB/pO7vLlF2OTmMVLhmr7Ag==,
       }
     engines: { node: '>=18' }
     hasBin: true
@@ -6294,6 +6294,14 @@ packages:
     engines: { node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1 }
     hasBin: true
 
+  nanoid@3.3.18:
+    resolution:
+      {
+        integrity: sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w==,
+      }
+    engines: { node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1 }
+    hasBin: true
+
   nanostores@1.4.2:
     resolution:
       {
@@ -6740,18 +6748,18 @@ packages:
       }
     engines: { node: '>=8' }
 
-  playwright-core@1.57.0:
+  playwright-core@1.60.0:
     resolution:
       {
-        integrity: sha512-agTcKlMw/mjBWOnD6kFZttAAGHgi/Nw0CZ2o6JqWSbMlI219lAFLZZCyqByTsvVAJq5XA5H8cA6PrvBRpBWEuQ==,
+        integrity: sha512-9bW6zvX/m0lEbgTKJ6YppOKx8H3VOPBMOCFh2irXFOT4BbHgrx5hPjwJYLT40Lu+4qtD36qKc/Hn56StUW57IA==,
       }
     engines: { node: '>=18' }
     hasBin: true
 
-  playwright@1.57.0:
+  playwright@1.60.0:
     resolution:
       {
-        integrity: sha512-ilYQj1s8sr2ppEJ2YVadYBN0Mb3mdo9J0wQ+UuDhzYqURwSoW4n1Xs5vs7ORwgDGmyEh33tRMeS8KhdkMoLXQw==,
+        integrity: sha512-hheHdokM8cdqCb0lcE3s+zT4t4W+vvjpGxsZlDnikarzx8tSzMebh3UiFtgqwFwnTnjYQcsyMF8ei2mCO/tpeA==,
       }
     engines: { node: '>=18' }
     hasBin: true
@@ -6781,6 +6789,13 @@ packages:
     resolution:
       {
         integrity: sha512-DTPx3RWSSnWyzLxQnlH0rJP+EW5ekl16ZU4/psbIhA0e53kJfdgaN5vKM+xP7yJtXVu+nfdVFmlgFDEKAe4Pyw==,
+      }
+    engines: { node: ^10 || ^12 || >=14 }
+
+  postcss@8.5.26:
+    resolution:
+      {
+        integrity: sha512-u82N74LFzG8ca+dD8puPnplTXoGH4fTPpVGuIbt36G3qvNlkvfD0lEAZSxaly3KX8TS/L1A1gsCEmvKmBcVbkQ==,
       }
     engines: { node: ^10 || ^12 || >=14 }
 
@@ -8476,10 +8491,10 @@ snapshots:
 
   '@asamuzakjp/nwsapi@2.3.9': {}
 
-  '@axe-core/playwright@4.11.0(playwright-core@1.57.0)':
+  '@axe-core/playwright@4.11.0(playwright-core@1.60.0)':
     dependencies:
       axe-core: 4.11.4
-      playwright-core: 1.57.0
+      playwright-core: 1.60.0
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -8677,7 +8692,7 @@ snapshots:
       '@better-fetch/fetch': 1.3.1
       '@opentelemetry/semantic-conventions': 1.43.0
       '@standard-schema/spec': 1.1.0
-      better-call: 1.3.7(zod@4.4.3)
+      better-call: 1.3.7(zod@4.1.13)
       jose: 6.2.8
       kysely: 0.29.4
       nanostores: 1.4.2
@@ -9175,9 +9190,9 @@ snapshots:
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
-  '@playwright/test@1.57.0':
+  '@playwright/test@1.60.0':
     dependencies:
-      playwright: 1.57.0
+      playwright: 1.60.0
 
   '@protobufjs/aspromise@1.1.2': {}
 
@@ -10592,7 +10607,7 @@ snapshots:
     dependencies:
       tweetnacl: 0.14.5
 
-  better-auth@1.6.26(drizzle-kit@0.31.4)(drizzle-orm@0.45.2(@types/pg@8.15.6)(kysely@0.29.4)(pg@8.16.3))(next@16.3.0(@babel/core@7.29.7)(@playwright/test@1.57.0)(@types/node@24.10.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(pg@8.16.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@4.1.10(@types/node@24.10.1)(jsdom@27.1.0)(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.30.2)(tsx@4.20.6)(yaml@2.9.0))):
+  better-auth@1.6.26(drizzle-kit@0.31.4)(drizzle-orm@0.45.2(@types/pg@8.15.6)(kysely@0.29.4)(pg@8.16.3))(next@16.3.0(@babel/core@7.29.7)(@playwright/test@1.60.0)(@types/node@24.10.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(pg@8.16.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@4.1.10(@types/node@24.10.1)(jsdom@27.1.0)(vite@7.3.6(@types/node@24.10.1)(jiti@2.7.0)(lightningcss@1.30.2)(tsx@4.20.6)(yaml@2.9.0))):
     dependencies:
       '@better-auth/core': 1.6.26(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.1.13))(jose@6.2.8)(kysely@0.29.4)(nanostores@1.4.2)
       '@better-auth/drizzle-adapter': 1.6.26(@better-auth/core@1.6.26(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.1.13))(jose@6.2.8)(kysely@0.29.4)(nanostores@1.4.2))(@better-auth/utils@0.4.2)(drizzle-orm@0.45.2(@types/pg@8.15.6)(kysely@0.29.4)(pg@8.16.3))
@@ -10614,7 +10629,7 @@ snapshots:
     optionalDependencies:
       drizzle-kit: 0.31.4
       drizzle-orm: 0.45.2(@types/pg@8.15.6)(kysely@0.29.4)(pg@8.16.3)
-      next: 16.3.0(@babel/core@7.29.7)(@playwright/test@1.57.0)(@types/node@24.10.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      next: 16.3.0(@babel/core@7.29.7)(@playwright/test@1.60.0)(@types/node@24.10.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       pg: 8.16.3
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
@@ -10622,6 +10637,15 @@ snapshots:
     transitivePeerDependencies:
       - '@cloudflare/workers-types'
       - '@opentelemetry/api'
+
+  better-call@1.3.7(zod@4.1.13):
+    dependencies:
+      '@better-auth/utils': 0.4.2
+      '@better-fetch/fetch': 1.3.1
+      rou3: 0.7.12
+      set-cookie-parser: 3.1.2
+    optionalDependencies:
+      zod: 4.1.13
 
   better-call@1.3.7(zod@4.4.3):
     dependencies:
@@ -12147,6 +12171,8 @@ snapshots:
 
   nanoid@3.3.17: {}
 
+  nanoid@3.3.18: {}
+
   nanostores@1.4.2: {}
 
   natural-compare@1.4.0: {}
@@ -12158,7 +12184,7 @@ snapshots:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  next@16.3.0(@babel/core@7.29.7)(@playwright/test@1.57.0)(@types/node@24.10.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  next@16.3.0(@babel/core@7.29.7)(@playwright/test@1.60.0)(@types/node@24.10.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       '@next/env': 16.3.0
       '@swc/helpers': 0.5.15
@@ -12177,7 +12203,7 @@ snapshots:
       '@next/swc-linux-x64-musl': 16.3.0
       '@next/swc-win32-arm64-msvc': 16.3.0
       '@next/swc-win32-x64-msvc': 16.3.0
-      '@playwright/test': 1.57.0
+      '@playwright/test': 1.60.0
       sharp: 0.35.3(@types/node@24.10.1)
     transitivePeerDependencies:
       - '@babel/core'
@@ -12416,11 +12442,11 @@ snapshots:
     dependencies:
       find-up: 3.0.0
 
-  playwright-core@1.57.0: {}
+  playwright-core@1.60.0: {}
 
-  playwright@1.57.0:
+  playwright@1.60.0:
     dependencies:
-      playwright-core: 1.57.0
+      playwright-core: 1.60.0
     optionalDependencies:
       fsevents: 2.3.2
 
@@ -12440,6 +12466,12 @@ snapshots:
   postcss@8.5.25:
     dependencies:
       nanoid: 3.3.17
+      picocolors: 1.1.1
+      source-map-js: 1.2.1
+
+  postcss@8.5.26:
+    dependencies:
+      nanoid: 3.3.18
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
@@ -13436,7 +13468,7 @@ snapshots:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.5)
       picomatch: 4.0.5
-      postcss: 8.5.25
+      postcss: 8.5.26
       rollup: 4.62.4
       tinyglobby: 0.2.17
     optionalDependencies:
