@@ -20,4 +20,4 @@ Reduzir operações acidentais em ocorrências futuras e tornar claras as difere
 - Unitários cobrem resolução do período.
 - Integração cobre desfazer realização, pagamentos e auditoria.
 - E2E cobre período padrão, escolha de escopo e desfazer realização.
-- `pnpm verify:e2e` permanece obrigatório; a execução local depende de PostgreSQL e runtime de containers.
+- `pnpm verify:e2e` permanece obrigatório; a execução local usa PostgreSQL isolado, runtime de containers e o bootstrap nativo dos browsers (`pnpm e2e:setup`).

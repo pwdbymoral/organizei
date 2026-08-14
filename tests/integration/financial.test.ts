@@ -41,6 +41,8 @@ describe('Financial Domain Integration', () => {
         POSTGRES_PASSWORD: 'test_fin_password',
       })
       .withExposedPorts(5432)
+      .withSharedMemorySize(256 * 1024 * 1024)
+      .withStartupTimeout(120_000)
       .withWaitStrategy(Wait.forLogMessage('database system is ready to accept connections'))
       .start();
     databaseUrl = `postgresql://test_fin:test_fin_password@${container.getHost()}:${container.getMappedPort(5432)}/test_fin`;
