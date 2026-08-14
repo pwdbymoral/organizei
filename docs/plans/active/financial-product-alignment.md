@@ -19,6 +19,8 @@ Fases 1 e 2 possuem implementação e testes focados concluídos nas branches co
 
 Fase 3: implementação e testes focados concluídos nesta branch. A integração E2E continua sendo gate antes da integração da branch.
 
+Fase 4: documentação de visão, escopo, glossário, capacidades futuras e status consolidada nesta branch.
+
 ## Invariantes
 
 - O espaço possui um caixa familiar único e consolidado.
@@ -38,3 +40,5 @@ Fase 3: implementação e testes focados concluídos nesta branch. A integraçã
 ## Verificação final
 
 Executar `pnpm verify:all`, além de `pnpm db:check`, `pnpm agents:check` e `pnpm security:check`, registrando resultados e limitações.
+
+Estado da execução: typecheck, lint, `db:check`, unitários e integração passaram nas branches de implementação. `pnpm e2e:doctor` falhou porque Chromium e WebKit não iniciam neste ambiente; a integração final permanece bloqueada até o bootstrap nativo dos browsers ser corrigido.
