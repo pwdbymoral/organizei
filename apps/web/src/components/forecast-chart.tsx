@@ -25,12 +25,6 @@ export function ForecastChart({ data }: { data: ForecastPoint[] }) {
           initialDimension={{ width: 600, height: 256 }}
         >
           <AreaChart data={data} margin={{ top: 12, right: 8, left: -18, bottom: 0 }}>
-            <defs>
-              <linearGradient id="forecast-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0.03} />
-              </linearGradient>
-            </defs>
             <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="label"
@@ -68,7 +62,8 @@ export function ForecastChart({ data }: { data: ForecastPoint[] }) {
               dataKey="balanceCents"
               stroke="var(--color-primary)"
               strokeWidth={3}
-              fill="url(#forecast-fill)"
+              fill="var(--color-primary)"
+              fillOpacity={0.12}
               activeDot={{ r: 6, fill: 'var(--color-primary)' }}
             />
           </AreaChart>

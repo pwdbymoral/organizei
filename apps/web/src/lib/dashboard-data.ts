@@ -9,8 +9,9 @@ import { and, desc, eq, inArray, ne } from 'drizzle-orm';
 import {
   calculateCashSummary,
   calculateDailyProjectionWithPayments,
-  calculateMonthlyProjectionWithPayments,
   toCivilDate,
+  type DailyProjection,
+  type MonthlyProjection,
 } from '@organizei/domain';
 import { materializeSpaceRecurrencesCore } from './financial-core';
 
@@ -81,14 +82,9 @@ export async function getDashboardData(
     today,
     normalizedMovements,
     payments,
-    30,
+    365,
   );
-  const monthlyProjection = calculateMonthlyProjectionWithPayments(
-    activeBalance,
-    today,
-    normalizedMovements,
-    payments,
-  );
+  const monthlyProjection = aggregateMonthlyProjection(projection.daily);
   const recentMovements = normalizedMovements.slice(0, 5);
   const monthlyTotals = new Map<string, { incomeCents: number; expenseCents: number }>();
   for (const movement of normalizedMovements) {
@@ -112,4 +108,22 @@ export async function getDashboardData(
     monthlyTotals,
     recentMovements,
   };
+}
+
+function aggregateMonthlyProjection(daily: DailyProjection[]): MonthlyProjection[] {
+  const grouped = new Map<string, MonthlyProjection>();
+  for (const point of daily) {
+    const month = point.date.slice(0, 7);
+    const current = grouped.get(month) ?? {
+      month,
+      balanceCents: point.balanceCents,
+      incomeCents: 0,
+      expenseCents: 0,
+    };
+    current.balanceCents = point.balanceCents;
+    current.incomeCents += point.incomeCents;
+    current.expenseCents += point.expenseCents;
+    grouped.set(month, current);
+  }
+  return [...grouped.values()];
 }
