@@ -19,7 +19,7 @@ export async function setupPlaywright(): Promise<void> {
   process.env.PLAYWRIGHT_BROWSERS_PATH = browserCacheDirectory;
   mkdirSync(browserCacheDirectory, { recursive: true });
 
-  if (browserCacheReady()) {
+  if (browserCacheReady() && process.env.CI !== 'true') {
     console.log(`Playwright ${playwrightVersion} já está preparado em ${browserCacheDirectory}.`);
     return;
   }
@@ -29,7 +29,7 @@ export async function setupPlaywright(): Promise<void> {
   }
 
   console.log(
-    `Instalando Playwright ${playwrightVersion}, Chromium, WebKit e dependências do sistema...`,
+    `${browserCacheReady() ? 'Verificando dependências nativas' : 'Instalando Playwright'} ${playwrightVersion}, Chromium, WebKit e dependências do sistema...`,
   );
   const result = await runCommand('pnpm', [
     'exec',
