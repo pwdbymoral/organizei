@@ -4,7 +4,7 @@ Vitest cobre funções puras; Testcontainers usa PostgreSQL real; Playwright cob
 
 ## Execução em Integração Contínua (CI)
 
-Para manter local e CI no mesmo ambiente sem depender de uma imagem Playwright de vários gigabytes, a suíte E2E executa no Ubuntu nativo. O bootstrap `pnpm e2e:setup` instala Chromium, WebKit e suas dependências para a versão exata de `@playwright/test` em `.cache/ms-playwright`; `pnpm verify:e2e` apenas valida o bootstrap e executa os testes.
+Para manter local e CI no mesmo ambiente sem depender de uma imagem Playwright de vários gigabytes, a suíte E2E executa no Ubuntu nativo. O bootstrap `pnpm e2e:setup` instala Chromium, WebKit e suas dependências para a versão exata de `@playwright/test` em `.cache/ms-playwright`; o CI mantém esse diretório em cache por versão do lockfile. `pnpm verify:e2e` apenas valida o bootstrap e executa os testes.
 
 A conexão com o banco de dados PostgreSQL usa um serviço isolado: `127.0.0.1:55433` localmente e `127.0.0.1:5432` no GitHub Actions. O Compose local é orquestrado por `scripts/ci/e2e-local.sh`; o runner compartilhado `scripts/ci/run-e2e.ts` prepara migrations, seed e aplicação e executa Chromium e WebKit em paralelo, cada um com um worker e seu próprio output/log. O mesmo runner TypeScript é usado localmente e no GitHub Actions.
 

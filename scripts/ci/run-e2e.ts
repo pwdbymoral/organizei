@@ -2,6 +2,8 @@ import { createWriteStream, mkdirSync } from 'node:fs';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 
+process.env.PLAYWRIGHT_BROWSERS_PATH ??= `${process.cwd()}/.cache/ms-playwright`;
+
 const projects = ['chromium', 'webkit'] as const;
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
 const serverLog = process.env.E2E_SERVER_LOG ?? '/tmp/organizei-e2e-server.log';

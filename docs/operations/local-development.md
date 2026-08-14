@@ -38,7 +38,7 @@ O comando recomendado para agentes é:
 pnpm verify:all
 ```
 
-O E2E usa browsers instalados no host em `.cache/ms-playwright`, não uma imagem Docker Playwright nem o banco de desenvolvimento. O Compose cria apenas um PostgreSQL efêmero na porta `55433`. A primeira execução de `pnpm e2e:setup` instala browsers e dependências do sistema; as execuções seguintes usam o cache local. O runner TypeScript inicia Chromium e WebKit em paralelo contra o mesmo servidor e banco, separando os outputs em `test-results/chromium` e `test-results/webkit`.
+O E2E usa browsers instalados no host em `.cache/ms-playwright`, não uma imagem Docker Playwright nem o banco de desenvolvimento. O runner também define esse caminho por padrão quando executado diretamente. O Compose cria apenas um PostgreSQL efêmero na porta `55433`. A primeira execução de `pnpm e2e:setup` instala browsers e dependências do sistema; as execuções seguintes usam o cache local. O runner TypeScript inicia Chromium e WebKit em paralelo contra o mesmo servidor e banco, separando os outputs em `test-results/chromium` e `test-results/webkit`.
 
 No primeiro bootstrap Linux, `pnpm e2e:setup` precisa de APT e permissão `sudo` para instalar as bibliotecas nativas do WebKit. Se o ambiente não permitir sudo, prepare essas dependências administrativamente antes de executar o comando.
 

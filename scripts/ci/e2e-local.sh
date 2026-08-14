@@ -17,7 +17,15 @@ trap cleanup EXIT
 
 "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
 "${compose[@]}" up -d postgres
-until "${compose[@]}" exec -T postgres pg_isready -U organizei -d organizei >/dev/null; do
+for attempt in $(seq 1 60); do
+  if "${compose[@]}" exec -T postgres pg_isready -U organizei -d organizei >/dev/null; then
+    break
+  fi
+  if [ "$attempt" -eq 60 ]; then
+    echo "PostgreSQL E2E não ficou disponível." >&2
+    "${compose[@]}" logs postgres >&2 || true
+    exit 1
+  fi
   sleep 1
 done
 

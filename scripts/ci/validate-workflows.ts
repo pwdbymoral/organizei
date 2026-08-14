@@ -30,6 +30,12 @@ async function main(): Promise<void> {
       if (!content.includes('pnpm e2e:setup')) {
         throw new Error('ci.yml: E2E job must prepare Playwright explicitly.');
       }
+      if (!content.includes('actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57')) {
+        throw new Error('ci.yml: E2E job must cache Playwright browsers.');
+      }
+      if (!content.includes('PLAYWRIGHT_BROWSERS_PATH:')) {
+        throw new Error('ci.yml: E2E job must set PLAYWRIGHT_BROWSERS_PATH explicitly.');
+      }
       if (!content.includes('pnpm exec tsx scripts/ci/run-e2e.ts')) {
         throw new Error('ci.yml: E2E job must use the shared TypeScript runner.');
       }
