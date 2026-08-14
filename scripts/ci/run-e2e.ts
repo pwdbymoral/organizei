@@ -8,6 +8,7 @@ process.env.PLAYWRIGHT_BROWSERS_PATH ??= `${process.cwd()}/.cache/ms-playwright`
 const baseUrl = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
 const serverLog = process.env.E2E_SERVER_LOG ?? '/tmp/organizei-e2e-server.log';
 const outputDirectory = 'test-results';
+const warmupPaths = ['/login', '/app', '/app/movements', '/offline', '/manifest.webmanifest'];
 
 const activePlaywrightProcesses = new Set<ChildProcess>();
 
@@ -68,6 +69,18 @@ async function waitForApplication(server: ChildProcess): Promise<void> {
   }
 
   throw new Error(`Aplicação não ficou disponível em ${baseUrl}.`);
+}
+
+async function warmApplication(): Promise<void> {
+  for (const path of warmupPaths) {
+    const response = await fetch(new URL(path, baseUrl), {
+      signal: AbortSignal.timeout(30_000),
+      redirect: 'follow',
+    });
+    if (!response.ok) {
+      throw new Error(`A aplicação respondeu ${response.status} ao aquecer ${path}.`);
+    }
+  }
 }
 
 async function runPlaywright(project: E2eProject): Promise<number> {
@@ -137,6 +150,7 @@ async function main(): Promise<void> {
 
   try {
     await waitForApplication(server);
+    await warmApplication();
 
     const results = await runInParallel(e2eProjects, runPlaywright);
     const failed = results.filter((code) => code !== 0);
