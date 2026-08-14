@@ -1,3 +1,3 @@
 # Notificações
 
-Agendamento recorrente é servidor-side (cron futuro), com fallback para APIs indisponíveis em iOS/Android. Browser não é relógio confiável.
+O agendamento recorrente será feito no servidor, por cron. O fluxo terá fallback para APIs indisponíveis em iOS/Android. O browser não é um relógio confiável.

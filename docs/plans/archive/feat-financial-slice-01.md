@@ -1,6 +1,6 @@
 # Plano Concluído — Primeiro Vertical Slice Financeiro (feat-financial-slice-01)
 
-Este plano descreve o trabalho para implementar a primeira fatia vertical funcional do planejador familiar de fluxo de caixa, garantindo que o sistema atravesse do domínio ao banco de dados e à interface de usuário de forma segura, sóbria e testada de acordo com as premissas arquiteturais corretas.
+Este plano registra a implementação da primeira fatia vertical do planejador familiar de fluxo de caixa, do domínio ao banco e à interface, seguindo as premissas arquiteturais do projeto.
 
 ---
 
@@ -71,8 +71,8 @@ Implementar o fluxo financeiro essencial para um **espaço familiar compartilhad
 
 ## 3. Risks & Mitigations (Riscos e Mitigações)
 
-- **Risco**: Furos de isolamento de dados entre espaços familiares distintos.
-  - **Mitigação**: Filtrar estritamente todas as queries do Drizzle pelo espaço autorizado obtido a partir da sessão ativa, testando exaustivamente acessos adversários.
+- **Risco**: Isolamento incorreto de dados entre espaços familiares distintos.
+  - **Mitigação**: Filtrar todas as queries do Drizzle pelo espaço autorizado obtido a partir da sessão ativa e testar acessos adversários.
 - **Risco**: Inconsistências de data devido a timezones e conversões locais.
   - **Mitigação**: Seguir estritamente o fuso `America/Maceio` para datas civis e normalizar datas na projeção de domínio puro.
 - **Risco**: Perda de histórico consolidado ou sobrescrita cega.

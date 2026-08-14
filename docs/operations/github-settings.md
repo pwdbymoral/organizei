@@ -30,5 +30,6 @@ Em **Settings → Rules → Rulesets**, crie uma regra direcionada à branch `ma
 
 ## Histórico de Infraestrutura de CI
 
-- O job de E2E originalmente falhava por atingir o timeout de 25 minutos do GitHub Actions na etapa de instalação das dependências do sistema e download do Chromium/WebKit. Para solucionar, o workflow roda dentro do container oficial do Playwright, fixado em `v1.57.0-noble@sha256:3bed4b1a12f2338642f3d8cba28e291deef3c66bd4a964bbeb3e57bbff511dbd`, como UID não-root 1001. O PostgreSQL é acessado apenas pela rede interna do job (`postgres:5432`), sem publicar porta no runner.
+- O job de E2E usa o runner nativo `ubuntu-24.04`, executa `pnpm e2e:setup` e roda Chromium/WebKit diretamente no host. O PostgreSQL é um service container isolado, publicado apenas na porta do job e acessado por `127.0.0.1:5432`. Local e CI compartilham o mesmo bootstrap e `scripts/ci/run-e2e.ts`, que aquece as rotas principais antes dos browsers.
+- O `pnpm verify` executa checks independentes em paralelo e deixa o build para a segunda fase. O runner registra a duração de cada check no log para comparar a execução real entre runs. Como referência, o run `31595063072` da `main` levou 2m03s em `verify` e 2m40s em E2E antes desta alteração.
 - Não use secrets em workflows vindos de forks.

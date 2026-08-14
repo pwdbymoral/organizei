@@ -4,4 +4,4 @@ CI usa permissões mínimas, ações fixadas por SHA e não usa `pull_request_ta
 
 Após autenticar: `gh auth login`, `gh auth status`. Em seguida o proprietário pode verificar com `gh repo view --web` e configurar rulesets pela interface; nenhum recurso remoto foi alterado aqui.
 
-`.gitleaksignore` registra apenas três fingerprints históricos de valores sintéticos já corrigidos no conteúdo atual. As exceções são específicas por commit, arquivo, regra e linha; nenhuma regra, caminho ou padrão de segredo foi liberado. Os workflows e o script de E2E geram seus segredos em runtime para que novos commits não contenham credenciais literais.
+`.gitleaksignore` registra apenas três fingerprints históricos de valores sintéticos já corrigidos no conteúdo atual. As exceções são específicas por commit, arquivo, regra e linha; nenhuma regra, caminho ou padrão de segredo foi liberado. Os workflows e o script de E2E geram segredos em runtime. Commits novos não precisam conter credenciais literais.

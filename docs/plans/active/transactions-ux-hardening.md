@@ -13,7 +13,7 @@ Reduzir operações acidentais em ocorrências futuras e tornar claras as difere
 - O formulário de nova transação usa presets de data e controles com altura consistente.
 - A edição de uma série permite informar a data da primeira nova ocorrência sem reescrever o histórico.
 - A edição iniciada por uma ocorrência realizada começa na próxima ocorrência futura e não duplica a data realizada.
-- Ocorrências pendentes sem pagamentos podem ser excluídas individualmente ou junto com as próximas da série; cancelamentos não são mais criados pelo fluxo da aplicação.
+- Ocorrências pendentes sem pagamentos podem ser excluídas individualmente ou junto com as próximas da série.
 
 ## Verificação
 

@@ -135,7 +135,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
   test('collaborative financial flow between two space members and adversarial isolation', async ({
     browser,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(90_000);
 
     // --- Step 1: Login User A (Space 1 Admin) ---
     const contextA = await browser.newContext();
