@@ -44,7 +44,7 @@
     "agents:list": "tsx scripts/agents/list.ts",
     "security:check": "pnpm audit --prod --audit-level high",
     "ci:check-workflows": "tsx scripts/ci/validate-workflows.ts",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm agents:check && pnpm ci:check-workflows && pnpm db:check && pnpm build",
+    "verify": "tsx scripts/ci/run-verify.ts",
     "verify:e2e": "pnpm test:e2e:local",
     "verify:all": "pnpm verify && pnpm verify:e2e"
   },

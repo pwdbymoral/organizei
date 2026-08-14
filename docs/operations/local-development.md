@@ -26,8 +26,8 @@ Comandos úteis:
 - `pnpm e2e:setup`: instala Chromium, WebKit e dependências nativas no cache local;
 - `pnpm e2e:doctor`: verifica se o bootstrap E2E está pronto;
 - `pnpm verify:e2e`: fluxo E2E completo com browsers nativos e PostgreSQL isolado;
+- `pnpm verify`: checks independentes executados em paralelo; o build roda depois que todos terminam;
 - `pnpm verify:all`: todas as verificações locais equivalentes aos gates do CI;
-- `pnpm verify`: formatação, lint, tipos, testes, banco e build;
 - `pnpm security:check`: auditoria de dependências.
 
 ## Verificação completa
