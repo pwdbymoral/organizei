@@ -53,6 +53,8 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
       <input type="hidden" name="spaceId" value={spaceId} />
       <input type="hidden" name="initialStatus" value={initialStatus} />
       <input type="hidden" name="direction" value={direction} />
+      {!advancedOpen && <input type="hidden" name="plannedDate" value={plannedDate || today} />}
+      {!advancedOpen && <input type="hidden" name="cadence" value={cadence} />}
 
       <div className="grid gap-2">
         <label className="text-sm font-medium" htmlFor="amount">
