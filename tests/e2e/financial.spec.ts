@@ -364,6 +364,12 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await expect(pageB.getByRole('heading', { name: 'Importar transações por CSV' })).toBeVisible();
     await expect(pageB.getByText('Data planejada', { exact: true })).toBeVisible();
     await expect(pageB.getByText('data_pagamento', { exact: true })).toBeVisible();
+    await pageB.getByText('Ver prompt para IA', { exact: true }).click();
+    await expect(pageB.locator('pre')).toContainText('Mantenha exatamente estes cabeçalhos');
+    const downloadPromise = pageB.waitForEvent('download');
+    await pageB.getByRole('link', { name: 'Baixar modelo CSV' }).click();
+    const templateDownload = await downloadPromise;
+    expect(templateDownload.suggestedFilename()).toBe('organizei-transacoes-modelo.csv');
     expect(
       await new AxeBuilder({ page: pageB }).include('[data-slot="sheet-content"]').analyze(),
     ).toHaveProperty('violations', []);
@@ -386,10 +392,10 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
       name: 'organizei-invalid.csv',
       mimeType: 'text/csv',
       buffer: Buffer.from(
-        `${csvTemplate()}transacao;Valor impossível;expense;100,00;realizada;2026-08-10;2026-08-10;100,01;;;;`,
+        `${csvTemplate()}transacao;Data impossível;expense;100,00;realizada;2026-02-31;2026-02-10;100,01;;;;`,
       ),
     });
-    await expect(pageB.getByRole('alert')).toContainText('valor_realizado não pode superar valor.');
+    await expect(pageB.getByRole('alert')).toContainText('data_planejada inválida.');
     await expect(pageB.getByRole('button', { name: 'Importar CSV' })).toBeDisabled();
 
     await pageB.setViewportSize({ width: 375, height: 800 });

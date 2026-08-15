@@ -122,7 +122,7 @@ Regras:
 - Use somente: tipo=transacao ou recorrencia; direcao=income ou expense; situacao=realizada ou pendente; periodicidade=weekly ou monthly.
 - Para recorrências, preencha periodicidade e inicio_recorrencia igual à primeira data_planejada. Use apenas um entre fim_recorrencia e quantidade_ocorrencias; a quantidade deve ficar entre 1 e ${MAX_CSV_OCCURRENCES}.
 - Para realizadas, preencha data_pagamento. Deixe campos opcionais vazios quando não houver informação.
-- valor_realizado deve ser menor ou igual a valor e só deve ser preenchido para realizadas.
+- valor_realizado pode ser diferente de valor quando o pagamento real divergir da previsão; só deve ser preenchido para realizadas.
 - Não invente valores, datas ou recorrências. Liste as ambiguidades antes do CSV.
 - Entregue somente o CSV final depois que as ambiguidades forem resolvidas.`;
 
@@ -186,12 +186,6 @@ export function validateCsvRow(row: CsvFinancialRow): string[] {
   if (row.valor_realizado && realizedAmountCents === null) errors.push('valor_realizado inválido.');
   if (row.situacao === 'pendente' && row.valor_realizado)
     errors.push('valor_realizado só vale para realizada.');
-  if (
-    expectedAmountCents !== null &&
-    realizedAmountCents !== null &&
-    realizedAmountCents > expectedAmountCents
-  )
-    errors.push('valor_realizado não pode superar valor.');
   if (row.tipo === 'recorrencia' && !['weekly', 'monthly'].includes(row.periodicidade))
     errors.push('periodicidade inválida.');
   if (

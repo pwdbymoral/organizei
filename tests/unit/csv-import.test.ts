@@ -48,12 +48,12 @@ describe('financial CSV import', () => {
     expect(CSV_AI_PROMPT).toContain('Não invente valores');
   });
 
-  it('rejects financial values and recurrence rules that violate invariants', () => {
+  it('accepts a realized amount that differs from its estimate', () => {
     const csv = `${csvTemplate()}transacao;Conta;expense;100,00;realizada;2026-08-10;2026-08-10;100,01;;;;`;
-    expect(parseFinancialCsv(csv).errors).toContain(
-      'Linha 2: valor_realizado não pode superar valor.',
-    );
+    expect(parseFinancialCsv(csv).errors).toEqual([]);
+  });
 
+  it('rejects recurrence rules that violate invariants', () => {
     const recurring = `${csvTemplate()}${[
       'recorrencia',
       'Plano',
