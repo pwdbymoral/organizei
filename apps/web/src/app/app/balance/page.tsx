@@ -54,7 +54,7 @@ export default async function BalancePage() {
             <CardHeader>
               <CardTitle>Corrigir saldo atual</CardTitle>
               <CardDescription>
-                Isso cria um ajuste no histórico e recalibra as previsões sem apagar suas
+                Isso cria uma transação de ajuste e atualiza as previsões sem apagar suas
                 transações.
               </CardDescription>
             </CardHeader>

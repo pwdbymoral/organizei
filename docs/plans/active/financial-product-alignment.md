@@ -15,9 +15,11 @@ O teste de usabilidade fica fora deste plano.
 
 A fase 1 bloqueia as fases 2 e 3. As fases 2 e 3 podem ser desenvolvidas em paralelo após a integração da fase 1. A fase 4 depende de ambas.
 
-Fases 1 e 2 possuem implementação e testes focados concluídos nas branches correspondentes. A integração E2E continua sendo gate antes da integração de cada branch.
+Fases 1 e 2 foram integradas ao `main` após passarem pelos checks obrigatórios.
 
-Fase 3: implementação e testes focados concluídos nesta branch. A integração E2E continua sendo gate antes da integração da branch.
+Fase 3 foi integrada ao `main` após passar por `pnpm verify`, E2E, segurança e checks remotos.
+
+Fase 4 consolida nesta branch a documentação de visão, escopo, glossário, capacidades futuras e status.
 
 ## Invariantes
 
@@ -32,9 +34,11 @@ Fase 3: implementação e testes focados concluídos nesta branch. A integraçã
 
 ## Bloqueios conhecidos
 
-- A branch precisa passar por migração PostgreSQL real e E2E antes de ser integrada.
-- O ambiente atual apresentou falha do pnpm ao abrir o SQLite do cache global; checks afetados não podem ser declarados aprovados até o ambiente ser corrigido.
+- A fase 4 precisa passar por `pnpm verify` e pelos checks remotos antes de ser integrada.
+- A renomeação semântica de `plannedDate`/`planned_date` está registrada em plano externo próprio e não faz parte desta fase.
 
 ## Verificação final
 
 Executar `pnpm verify:all`, além de `pnpm db:check`, `pnpm agents:check` e `pnpm security:check`, registrando resultados e limitações.
+
+Estado da execução: fases 1, 2 e 3 passaram por `pnpm verify` e E2E local/remoto. A fase 4 aguarda sua própria verificação.

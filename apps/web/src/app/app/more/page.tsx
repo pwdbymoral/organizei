@@ -37,8 +37,8 @@ export default async function MorePage() {
             <Wallet aria-hidden="true" className="size-4" /> Saldo
           </h2>
           <p className="text-text-muted mt-2 text-sm">
-            Quando o saldo calculado não coincidir com o caixa real, registre uma conferência sem
-            apagar o histórico.
+            Quando o saldo calculado não coincidir com o caixa real, registre um ajuste sem apagar o
+            histórico.
           </p>
           <Link
             href="/app/balance"

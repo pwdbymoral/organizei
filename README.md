@@ -2,7 +2,7 @@
 
 Planejador de fluxo de caixa familiar compartilhado, construído em público sem expor dados financeiros.
 
-Status: **primeiro vertical slice financeiro implementado**: espaço familiar, checkpoints append-only, movimentações avulsas, projeção diária e auditoria mínima. Recorrências, parcelamentos e pagamentos parciais continuam fora deste marco.
+Status: **núcleo financeiro implementado**: caixa familiar consolidado, saldo inicial real, ajustes auditados, transações realizadas e previstas, recorrências, parcelamentos, pagamentos parciais, importação CSV, projeções de 30 a 365 dias e notificações configuráveis. O produto continua restrito a dois usuários internos e usa dados sintéticos no repositório.
 
 Stack: Next.js 16, TypeScript estrito, PostgreSQL, Drizzle, Better Auth, Tailwind e Playwright.
 
