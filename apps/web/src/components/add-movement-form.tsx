@@ -3,10 +3,11 @@
 import { useActionState, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createFinancialMovementFormAction } from '../actions/financial';
-import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group';
 
 const initialFinancialFormState = { status: 'idle' as const, message: '' };
 
@@ -14,8 +15,10 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [cadence, setCadence] = useState('once');
+  const [direction, setDirection] = useState<'expense' | 'income'>('expense');
   const [initialStatus, setInitialStatus] = useState<'realized' | 'pending'>('realized');
   const [plannedDate, setPlannedDate] = useState('');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [state, action, pending] = useActionState(
     createFinancialMovementFormAction,
     initialFinancialFormState,
@@ -30,59 +33,45 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
     if (state.status === 'success') {
       formRef.current?.reset();
       setCadence('once');
+      setDirection('expense');
       setInitialStatus('realized');
       setPlannedDate(today);
+      setAdvancedOpen(false);
     }
-  }, [state.status]);
+  }, [state.status, today]);
+
+  function changeStatus(value: string) {
+    const next = value as typeof initialStatus;
+    if (next !== 'realized' && next !== 'pending') return;
+    setInitialStatus(next);
+    if (next === 'realized' && plannedDate > today) setPlannedDate(today);
+    if (next === 'pending') setAdvancedOpen(true);
+  }
 
   return (
     <form ref={formRef} action={action} className="grid gap-5" noValidate>
       <input type="hidden" name="spaceId" value={spaceId} />
       <input type="hidden" name="initialStatus" value={initialStatus} />
+      <input type="hidden" name="direction" value={direction} />
+      {!advancedOpen && <input type="hidden" name="plannedDate" value={plannedDate || today} />}
+      {!advancedOpen && <input type="hidden" name="cadence" value={cadence} />}
+
       <div className="grid gap-2">
-        <span className="text-sm font-medium">Situação</span>
-        <Tabs
-          value={initialStatus}
-          onValueChange={(value) => {
-            const next = value as typeof initialStatus;
-            setInitialStatus(next);
-            if (next === 'realized' && plannedDate > today) setPlannedDate(today);
-          }}
-        >
-          <TabsList className="grid !h-auto min-h-11 w-full grid-cols-2">
-            <TabsTrigger value="realized" className="min-h-11">
-              Já aconteceu
-            </TabsTrigger>
-            <TabsTrigger value="pending" className="min-h-11">
-              Está previsto
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <label className="text-sm font-medium" htmlFor="amount">
+          Valor (R$)
+        </label>
+        <Input
+          id="amount"
+          name="amount"
+          inputMode="decimal"
+          pattern="\d+([,.]\d{1,2})?"
+          placeholder="0,00"
+          required
+          autoFocus
+          className={inputClass}
+        />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Tipo" htmlFor="direction">
-          <Select name="direction" defaultValue="expense">
-            <SelectTrigger id="direction" className={inputClass}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="expense">Saída</SelectItem>
-              <SelectItem value="income">Entrada</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field label="Valor (R$)" htmlFor="amount">
-          <Input
-            id="amount"
-            name="amount"
-            inputMode="decimal"
-            pattern="\d+([,.]\d{1,2})?"
-            placeholder="0,00"
-            required
-            className={inputClass}
-          />
-        </Field>
-      </div>
+
       <Field label="Descrição" htmlFor="description">
         <Input
           id="description"
@@ -93,82 +82,149 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
           className={inputClass}
         />
       </Field>
-      <Field
-        label={initialStatus === 'realized' ? 'Aconteceu em' : 'Previsto para'}
-        htmlFor="plannedDate"
-      >
-        <div className="grid gap-2 sm:flex">
-          <Input
-            id="plannedDate"
-            name="plannedDate"
-            type="date"
-            value={plannedDate || today}
-            onChange={(event) => {
-              setPlannedDate(event.target.value);
-              if (event.target.value > today) setInitialStatus('pending');
-            }}
-            required
-            className={`${inputClass} flex-1`}
-          />
-          <div className="flex flex-wrap gap-2">
-            {datePresets(initialStatus, today).map((preset) => (
-              <Button
-                key={preset.label}
-                type="button"
-                variant={preset.value === plannedDate ? 'secondary' : 'outline'}
-                size="sm"
-                className="min-h-12"
-                onClick={() => setPlannedDate(preset.value)}
-              >
-                {preset.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </Field>
 
-      <div className="border-border bg-surface rounded-2xl border p-4">
-        <Field label="Repetição ou parcelamento" htmlFor="cadence">
-          <Select
-            name="cadence"
-            value={cadence}
-            onValueChange={(nextCadence) => {
-              setCadence(nextCadence);
-              if (nextCadence !== 'once') setInitialStatus('pending');
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-2">
+          <span className="text-sm font-medium">Tipo</span>
+          <ToggleGroup
+            type="single"
+            value={direction}
+            onValueChange={(value) => {
+              if (value === 'income' || value === 'expense') setDirection(value);
             }}
+            variant="outline"
+            spacing={0}
+            aria-label="Tipo da transação"
+            className="grid min-h-12 w-full grid-cols-2"
           >
-            <SelectTrigger id="cadence" className={inputClass}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="once">Não repetir</SelectItem>
-              <SelectItem value="weekly">Repetir toda semana</SelectItem>
-              <SelectItem value="monthly">Repetir todo mês</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-        {cadence !== 'once' && (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Field label="Até esta data (opcional)" htmlFor="effectiveUntil">
-              <Input id="effectiveUntil" name="effectiveUntil" type="date" className={inputClass} />
-            </Field>
-            <Field label="Ou quantidade de vezes" htmlFor="maxOccurrences">
-              <Input
-                id="maxOccurrences"
-                name="maxOccurrences"
-                type="number"
-                min="1"
-                inputMode="numeric"
-                placeholder="Ex.: 12"
-                className={inputClass}
-              />
-            </Field>
-          </div>
-        )}
-        <p className="text-text-muted mt-3 text-xs">
-          Use uma opção para contas recorrentes ou compras parceladas.
-        </p>
+            <ToggleGroupItem value="expense" className="min-h-12">
+              Saída
+            </ToggleGroupItem>
+            <ToggleGroupItem value="income" className="min-h-12">
+              Entrada
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
+        <div className="grid gap-2">
+          <span className="text-sm font-medium">Situação</span>
+          <ToggleGroup
+            type="single"
+            value={initialStatus}
+            onValueChange={changeStatus}
+            variant="outline"
+            spacing={0}
+            aria-label="Situação da transação"
+            className="grid min-h-12 w-full grid-cols-2"
+          >
+            <ToggleGroupItem value="realized" className="min-h-12">
+              Já aconteceu
+            </ToggleGroupItem>
+            <ToggleGroupItem value="pending" className="min-h-12">
+              Está previsto
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
       </div>
+
+      <Collapsible
+        open={advancedOpen}
+        onOpenChange={setAdvancedOpen}
+        className="border-border rounded-2xl border"
+      >
+        <CollapsibleTrigger asChild>
+          <Button type="button" variant="ghost" className="min-h-12 w-full justify-between px-4">
+            <span>Mais opções</span>
+            <span aria-hidden="true">{advancedOpen ? '−' : '+'}</span>
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="grid gap-5 border-t px-4 pb-4 pt-4">
+          <Field
+            label={initialStatus === 'realized' ? 'Aconteceu em' : 'Previsto para'}
+            htmlFor="plannedDate"
+          >
+            <div className="grid gap-2 sm:flex">
+              <Input
+                id="plannedDate"
+                name="plannedDate"
+                type="date"
+                value={plannedDate || today}
+                onChange={(event) => {
+                  setPlannedDate(event.target.value);
+                  if (event.target.value > today) setInitialStatus('pending');
+                }}
+                required
+                className={`${inputClass} flex-1`}
+              />
+              <div className="flex flex-wrap gap-2">
+                {datePresets(initialStatus, today).map((preset) => (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    variant={preset.value === plannedDate ? 'secondary' : 'outline'}
+                    size="sm"
+                    className="min-h-12"
+                    onClick={() => setPlannedDate(preset.value)}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </Field>
+
+          <div className="grid gap-2">
+            <Field label="Repetição ou parcelamento" htmlFor="cadence">
+              <Select
+                name="cadence"
+                value={cadence}
+                onValueChange={(nextCadence) => {
+                  setCadence(nextCadence);
+                  if (nextCadence !== 'once') {
+                    setInitialStatus('pending');
+                    setAdvancedOpen(true);
+                  }
+                }}
+              >
+                <SelectTrigger id="cadence" className={inputClass}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="once">Não repetir</SelectItem>
+                  <SelectItem value="weekly">Repetir toda semana</SelectItem>
+                  <SelectItem value="monthly">Repetir todo mês</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            {cadence !== 'once' && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Até esta data (opcional)" htmlFor="effectiveUntil">
+                  <Input
+                    id="effectiveUntil"
+                    name="effectiveUntil"
+                    type="date"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Ou quantidade de vezes" htmlFor="maxOccurrences">
+                  <Input
+                    id="maxOccurrences"
+                    name="maxOccurrences"
+                    type="number"
+                    min="1"
+                    inputMode="numeric"
+                    placeholder="Ex.: 12"
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+            )}
+            <p className="text-text-muted text-xs">
+              Use uma opção para contas recorrentes ou compras parceladas.
+            </p>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {state.message && (
         <p
@@ -186,7 +242,7 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
           variant="outline"
           className="flex-1"
         >
-          Concluir
+          Voltar ao início
         </Button>
         <Button type="submit" disabled={pending} className="flex-1">
           {pending ? 'Salvando…' : state.status === 'success' ? 'Adicionar outra' : 'Salvar'}

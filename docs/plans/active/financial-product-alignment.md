@@ -15,6 +15,8 @@ O teste de usabilidade fica fora deste plano.
 
 A fase 1 bloqueia as fases 2 e 3. As fases 2 e 3 podem ser desenvolvidas em paralelo após a integração da fase 1. A fase 4 depende de ambas.
 
+Fases 1 e 2 possuem implementação e testes focados concluídos nas branches correspondentes. A integração E2E continua sendo gate antes da integração de cada branch.
+
 ## Invariantes
 
 - O espaço possui um caixa familiar único e consolidado.
