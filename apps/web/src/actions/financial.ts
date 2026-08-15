@@ -193,6 +193,7 @@ function userFacingError(error: unknown): FinancialFormState {
     'O valor realizado deve corresponder ao total pago.',
     'A nova data deve manter a ordem das ocorrências.',
     'A ocorrência deve pertencer ao futuro da série.',
+    'O CSV pode gerar no máximo 5000 movimentações.',
   ];
   return {
     status: 'error',

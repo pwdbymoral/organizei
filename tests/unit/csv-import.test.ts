@@ -88,4 +88,14 @@ describe('financial CSV import', () => {
       'Linha 2: campos de recorrência só valem para recorrencia.',
     );
   });
+
+  it('rejects ambiguous or malformed CSV structure', () => {
+    const duplicateHeader = `${CSV_HEADERS.join(';')};descricao\n`;
+    expect(parseFinancialCsv(duplicateHeader).errors).toEqual(['Colunas duplicadas: descricao.']);
+
+    const malformed = `${CSV_HEADERS.join(';')}\ntransacao;\"Conta;expense;100,00;pendente;2026-08-10;;;;;;`;
+    expect(parseFinancialCsv(malformed).errors).toEqual([
+      'O arquivo CSV possui aspas não fechadas.',
+    ]);
+  });
 });

@@ -532,4 +532,26 @@ describe('Financial Domain Integration', () => {
       }),
     ).toHaveLength(0);
   });
+
+  it('rejects invalid imports before writing and enforces workspace membership', async () => {
+    const before = await db.query.financialMovement.findMany({
+      where: (table, { eq }) => eq(table.spaceId, space1),
+    });
+    const invalidValue = [
+      'tipo;descricao;direcao;valor;situacao;data_planejada;data_pagamento;valor_realizado;periodicidade;inicio_recorrencia;fim_recorrencia;quantidade_ocorrencias',
+      'transacao;Importação inválida;expense;100,00;realizada;2025-01-10;2025-01-05;100,01;;;;',
+    ].join('\n');
+
+    await expect(importFinancialCsvCore(space1, invalidValue, userA, '2025-01-10')).rejects.toThrow(
+      'valor_realizado não pode superar valor',
+    );
+    const after = await db.query.financialMovement.findMany({
+      where: (table, { eq }) => eq(table.spaceId, space1),
+    });
+    expect(after).toHaveLength(before.length);
+
+    await expect(importFinancialCsvCore(space2, invalidValue, userA, '2025-01-10')).rejects.toThrow(
+      'Forbidden',
+    );
+  });
 });

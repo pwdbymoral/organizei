@@ -362,6 +362,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageB.getByRole('button', { name: 'Mais ações' }).click();
     await pageB.getByRole('menuitem', { name: 'Importar CSV' }).click();
     await expect(pageB.getByRole('heading', { name: 'Importar transações por CSV' })).toBeVisible();
+    await expect(pageB.getByText('Data planejada', { exact: true })).toBeVisible();
     await expect(pageB.getByText('data_pagamento', { exact: true })).toBeVisible();
     expect(
       await new AxeBuilder({ page: pageB }).include('[data-slot="sheet-content"]').analyze(),
@@ -377,6 +378,25 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageB.getByLabel('Revisei a prévia e quero importar estas linhas.').check();
     await pageB.getByRole('button', { name: 'Importar CSV' }).click();
     await expect(pageB.getByText('Importação de teste')).toBeVisible();
+
+    // Invalid financial invariants are rejected in the client preview before submit.
+    await pageB.getByRole('button', { name: 'Mais ações' }).click();
+    await pageB.getByRole('menuitem', { name: 'Importar CSV' }).click();
+    await pageB.locator('input[type="file"]').setInputFiles({
+      name: 'organizei-invalid.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        `${csvTemplate()}transacao;Valor impossível;expense;100,00;realizada;2026-08-10;2026-08-10;100,01;;;;`,
+      ),
+    });
+    await expect(pageB.getByRole('alert')).toContainText('valor_realizado não pode superar valor.');
+    await expect(pageB.getByRole('button', { name: 'Importar CSV' })).toBeDisabled();
+
+    await pageB.setViewportSize({ width: 375, height: 800 });
+    await expect
+      .poll(() => pageB.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(375);
+    await pageB.setViewportSize({ width: 1280, height: 900 });
 
     // --- Step 8: Login User C (adversary in other space, different context) ---
     const contextC = await browser.newContext();

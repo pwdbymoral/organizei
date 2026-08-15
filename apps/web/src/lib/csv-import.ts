@@ -15,6 +15,7 @@ export const CSV_HEADERS = [
 
 export const MAX_CSV_OCCURRENCES = 120;
 export const MAX_CSV_AMOUNT_CENTS = 2_147_483_647;
+export const MAX_CSV_GENERATED_MOVEMENTS = 5_000;
 
 export type CsvFinancialRow = Record<(typeof CSV_HEADERS)[number], string>;
 
@@ -130,11 +131,20 @@ export function csvTemplate() {
 }
 
 export function parseFinancialCsv(input: string): { rows: CsvFinancialRow[]; errors: string[] } {
-  const lines = parseLines(input);
+  const parsedLines = parseLines(input);
+  if (parsedLines.malformed)
+    return { rows: [], errors: ['O arquivo CSV possui aspas não fechadas.'] };
+  const lines = parsedLines.rows;
   if (lines.length === 0) return { rows: [], errors: ['O arquivo está vazio.'] };
-  const header = lines[0]!.map((value) => value.trim());
+  const header = lines[0]!.map((value, index) =>
+    (index === 0 ? value.replace(/^\uFEFF/, '') : value).trim(),
+  );
   const missing = CSV_HEADERS.filter((name) => !header.includes(name));
   if (missing.length) return { rows: [], errors: [`Colunas ausentes: ${missing.join(', ')}.`] };
+  const duplicates = header.filter((name, index) => name && header.indexOf(name) !== index);
+  if (duplicates.length) {
+    return { rows: [], errors: [`Colunas duplicadas: ${[...new Set(duplicates)].join(', ')}.`] };
+  }
   const indexes = new Map(header.map((name, index) => [name, index]));
   const rows: CsvFinancialRow[] = [];
   const errors: string[] = [];
@@ -225,7 +235,7 @@ export function isValidCsvDate(value: string) {
   );
 }
 
-function parseLines(input: string): string[][] {
+function parseLines(input: string): { rows: string[][]; malformed: boolean } {
   const rows: string[][] = [];
   let row: string[] = [];
   let value = '';
@@ -252,7 +262,7 @@ function parseLines(input: string): string[][] {
     row.push(value);
     rows.push(row);
   }
-  return rows;
+  return { rows, malformed: quoted };
 }
 
 export function parseCsvMoney(value: string) {
