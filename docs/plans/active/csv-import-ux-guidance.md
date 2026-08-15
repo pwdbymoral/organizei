@@ -22,6 +22,10 @@ Manter a importação CSV disponível para quem precisa importar dados, sem comp
 - `data_pagamento` é obrigatória para lançamentos realizados.
 - Recorrências usam `periodicidade` e `inicio_recorrencia`.
 - `fim_recorrencia` e `quantidade_ocorrencias` são alternativas.
+- `inicio_recorrencia` deve ser igual à primeira `data_planejada`.
+- `fim_recorrencia` deve ser igual ou posterior à primeira data planejada.
+- `quantidade_ocorrencias` aceita de 1 a 120 ocorrências.
+- `valor_realizado` não pode superar `valor` e só vale para lançamentos realizados.
 
 ## Verificação
 

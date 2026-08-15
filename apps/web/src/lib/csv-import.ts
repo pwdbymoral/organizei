@@ -13,6 +13,9 @@ export const CSV_HEADERS = [
   'quantidade_ocorrencias',
 ] as const;
 
+export const MAX_CSV_OCCURRENCES = 120;
+export const MAX_CSV_AMOUNT_CENTS = 2_147_483_647;
+
 export type CsvFinancialRow = Record<(typeof CSV_HEADERS)[number], string>;
 
 export type CsvFieldGuide = {
@@ -116,8 +119,9 @@ Regras:
 - Mantenha exatamente estes cabeçalhos e nesta ordem: ${CSV_HEADERS.join(';')}
 - Use separador ponto e vírgula (;), uma transação por linha e datas no formato AAAA-MM-DD.
 - Use somente: tipo=transacao ou recorrencia; direcao=income ou expense; situacao=realizada ou pendente; periodicidade=weekly ou monthly.
-- Para recorrências, preencha periodicidade e inicio_recorrencia. Use apenas um entre fim_recorrencia e quantidade_ocorrencias.
+- Para recorrências, preencha periodicidade e inicio_recorrencia igual à primeira data_planejada. Use apenas um entre fim_recorrencia e quantidade_ocorrencias; a quantidade deve ficar entre 1 e ${MAX_CSV_OCCURRENCES}.
 - Para realizadas, preencha data_pagamento. Deixe campos opcionais vazios quando não houver informação.
+- valor_realizado deve ser menor ou igual a valor e só deve ser preenchido para realizadas.
 - Não invente valores, datas ou recorrências. Liste as ambiguidades antes do CSV.
 - Entregue somente o CSV final depois que as ambiguidades forem resolvidas.`;
 
@@ -155,28 +159,70 @@ export function validateCsvRow(row: CsvFinancialRow): string[] {
     errors.push('descrição obrigatória (até 160 caracteres).');
   if (!['income', 'expense'].includes(row.direcao))
     errors.push('direcao deve ser income ou expense.');
-  if (!/^\d+(?:[,.]\d{1,2})?$/.test(row.valor)) errors.push('valor inválido.');
+  const expectedAmountCents = parseCsvMoneySafely(row.valor);
+  if (expectedAmountCents === null) errors.push('valor inválido.');
   if (!['realizada', 'pendente'].includes(row.situacao))
     errors.push('situacao deve ser realizada ou pendente.');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(row.data_planejada)) errors.push('data_planejada inválida.');
-  if (row.situacao === 'realizada' && !/^\d{4}-\d{2}-\d{2}$/.test(row.data_pagamento)) {
+  if (!isValidCsvDate(row.data_planejada)) errors.push('data_planejada inválida.');
+  if (row.situacao === 'realizada' && !row.data_pagamento)
     errors.push('data_pagamento é obrigatória para realizada.');
-  }
-  if (row.valor_realizado && !/^\d+(?:[,.]\d{1,2})?$/.test(row.valor_realizado))
-    errors.push('valor_realizado inválido.');
+  else if (row.situacao === 'realizada' && !isValidCsvDate(row.data_pagamento))
+    errors.push('data_pagamento inválida.');
+  if (row.situacao === 'pendente' && row.data_pagamento)
+    errors.push('data_pagamento só vale para realizada.');
+  const realizedAmountCents = row.valor_realizado
+    ? parseCsvMoneySafely(row.valor_realizado)
+    : expectedAmountCents;
+  if (row.valor_realizado && realizedAmountCents === null) errors.push('valor_realizado inválido.');
+  if (row.situacao === 'pendente' && row.valor_realizado)
+    errors.push('valor_realizado só vale para realizada.');
+  if (
+    expectedAmountCents !== null &&
+    realizedAmountCents !== null &&
+    realizedAmountCents > expectedAmountCents
+  )
+    errors.push('valor_realizado não pode superar valor.');
   if (row.tipo === 'recorrencia' && !['weekly', 'monthly'].includes(row.periodicidade))
     errors.push('periodicidade inválida.');
-  if (row.tipo === 'transacao' && row.periodicidade)
-    errors.push('periodicidade só vale para recorrencia.');
-  if (row.tipo === 'recorrencia' && !/^\d{4}-\d{2}-\d{2}$/.test(row.inicio_recorrencia))
+  if (
+    row.tipo === 'transacao' &&
+    (row.periodicidade ||
+      row.inicio_recorrencia ||
+      row.fim_recorrencia ||
+      row.quantidade_ocorrencias)
+  )
+    errors.push('campos de recorrência só valem para recorrencia.');
+  if (row.tipo === 'recorrencia' && !isValidCsvDate(row.inicio_recorrencia))
     errors.push('inicio_recorrencia inválido.');
-  if (row.quantidade_ocorrencias && !/^\d+$/.test(row.quantidade_ocorrencias))
-    errors.push('quantidade_ocorrencias inválida.');
-  if (row.fim_recorrencia && !/^\d{4}-\d{2}-\d{2}$/.test(row.fim_recorrencia))
+  if (row.tipo === 'recorrencia' && row.inicio_recorrencia !== row.data_planejada)
+    errors.push('inicio_recorrencia deve ser igual à primeira data_planejada.');
+  if (
+    row.quantidade_ocorrencias &&
+    (!/^\d+$/.test(row.quantidade_ocorrencias) ||
+      Number(row.quantidade_ocorrencias) < 1 ||
+      Number(row.quantidade_ocorrencias) > MAX_CSV_OCCURRENCES)
+  )
+    errors.push(`quantidade_ocorrencias deve estar entre 1 e ${MAX_CSV_OCCURRENCES}.`);
+  if (row.fim_recorrencia && !isValidCsvDate(row.fim_recorrencia))
     errors.push('fim_recorrencia inválido.');
   if (row.fim_recorrencia && row.quantidade_ocorrencias)
     errors.push('use fim_recorrencia ou quantidade_ocorrencias, não os dois.');
+  if (
+    row.fim_recorrencia &&
+    isValidCsvDate(row.data_planejada) &&
+    row.fim_recorrencia < row.data_planejada
+  )
+    errors.push('fim_recorrencia deve ser igual ou posterior à data_planejada.');
   return errors;
+}
+
+export function isValidCsvDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year!, month! - 1, day));
+  return (
+    date.getUTCFullYear() === year && date.getUTCMonth() === month! - 1 && date.getUTCDate() === day
+  );
 }
 
 function parseLines(input: string): string[][] {
@@ -210,8 +256,26 @@ function parseLines(input: string): string[][] {
 }
 
 export function parseCsvMoney(value: string) {
-  const normalized = value.trim().replace(/\./g, '').replace(',', '.');
+  const trimmed = value.trim();
+  if (!/^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/.test(trimmed))
+    throw new Error('Valor CSV inválido.');
+  const normalized = trimmed.replace(/\./g, '').replace(',', '.');
   const amount = Number(normalized);
-  if (!Number.isFinite(amount) || amount <= 0) throw new Error('Valor CSV inválido.');
-  return Math.round(amount * 100);
+  const cents = Math.round(amount * 100);
+  if (
+    !Number.isFinite(amount) ||
+    !Number.isSafeInteger(cents) ||
+    cents < 1 ||
+    cents > MAX_CSV_AMOUNT_CENTS
+  )
+    throw new Error('Valor CSV inválido.');
+  return cents;
+}
+
+function parseCsvMoneySafely(value: string) {
+  try {
+    return parseCsvMoney(value);
+  } catch {
+    return null;
+  }
 }

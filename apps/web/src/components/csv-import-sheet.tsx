@@ -17,11 +17,19 @@ export function CsvImportSheet({ spaceId }: { spaceId: string }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
 
   async function copyPrompt() {
-    await navigator.clipboard.writeText(CSV_AI_PROMPT);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
+    try {
+      if (!navigator.clipboard) throw new Error('Clipboard indisponível');
+      await navigator.clipboard.writeText(CSV_AI_PROMPT);
+      setCopyError(false);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+      setCopyError(true);
+    }
   }
 
   return (
@@ -99,7 +107,7 @@ export function CsvImportSheet({ spaceId }: { spaceId: string }) {
                   <thead className="bg-muted text-text-muted">
                     <tr>
                       <th scope="col" className="px-3 py-2 font-medium">
-                        Coluna
+                        Campo
                       </th>
                       <th scope="col" className="px-3 py-2 font-medium">
                         Preenchimento
@@ -113,7 +121,10 @@ export function CsvImportSheet({ spaceId }: { spaceId: string }) {
                     {CSV_FIELD_GUIDE.map((field) => (
                       <tr key={field.name} className="border-border border-t align-top">
                         <th scope="row" className="px-3 py-2 font-mono text-xs font-medium">
-                          {field.name}
+                          <span className="block font-sans text-sm">{field.label}</span>
+                          <code className="text-text-muted mt-1 block text-[11px]">
+                            {field.name}
+                          </code>
                         </th>
                         <td className="px-3 py-2">{field.requirement}</td>
                         <td className="px-3 py-2">
@@ -129,6 +140,12 @@ export function CsvImportSheet({ spaceId }: { spaceId: string }) {
                 Para evitar importações incorretas, não inclua títulos, totais ou comentários no
                 arquivo.
               </p>
+              {copyError && (
+                <p role="alert" className="text-danger text-sm">
+                  Não foi possível copiar automaticamente. Abra “Ver prompt para IA” e copie o texto
+                  manualmente.
+                </p>
+              )}
             </section>
 
             <section
