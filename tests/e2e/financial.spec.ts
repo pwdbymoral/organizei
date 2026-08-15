@@ -182,7 +182,7 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
 
     // Add Income
     await pageA.getByLabel('Descrição').fill('Salário Mensal');
-    await pageA.getByRole('button', { name: 'Entrada' }).click();
+    await pageA.getByRole('radio', { name: 'Entrada' }).click();
     await pageA.getByLabel('Valor (R$)').fill('50.00');
     await pageA.getByRole('button', { name: 'Salvar' }).click();
     await expect(pageA.getByText('Movimentação salva.')).toBeVisible();
@@ -196,9 +196,9 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await pageA.getByRole('link', { name: /Nova transação/ }).click();
     await expect(pageA.getByRole('heading', { name: 'Nova transação' })).toBeVisible();
     await pageA.getByLabel('Descrição').fill('Conta de Luz');
-    await pageA.getByRole('button', { name: 'Saída' }).click();
+    await pageA.getByRole('radio', { name: 'Saída' }).click();
     await pageA.getByLabel('Valor (R$)').fill('30.00');
-    await pageA.getByRole('button', { name: 'Está previsto' }).click();
+    await pageA.getByRole('radio', { name: 'Está previsto' }).click();
     const today = await pageA.evaluate(() =>
       new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Maceio' }).format(new Date()),
     );
