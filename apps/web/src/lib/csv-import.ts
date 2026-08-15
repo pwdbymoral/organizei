@@ -15,6 +15,112 @@ export const CSV_HEADERS = [
 
 export type CsvFinancialRow = Record<(typeof CSV_HEADERS)[number], string>;
 
+export type CsvFieldGuide = {
+  name: (typeof CSV_HEADERS)[number];
+  label: string;
+  requirement: 'Obrigatória' | 'Opcional' | 'Condicional';
+  format: string;
+  example: string;
+};
+
+export const CSV_FIELD_GUIDE: CsvFieldGuide[] = [
+  {
+    name: 'tipo',
+    label: 'Tipo do lançamento',
+    requirement: 'Obrigatória',
+    format: '`transacao` ou `recorrencia`',
+    example: 'transacao',
+  },
+  {
+    name: 'descricao',
+    label: 'Descrição',
+    requirement: 'Obrigatória',
+    format: 'Texto com até 160 caracteres',
+    example: 'Conta de luz',
+  },
+  {
+    name: 'direcao',
+    label: 'Entrada ou saída',
+    requirement: 'Obrigatória',
+    format: '`income` ou `expense`',
+    example: 'expense',
+  },
+  {
+    name: 'valor',
+    label: 'Valor previsto',
+    requirement: 'Obrigatória',
+    format: 'Número positivo; aceita `1234,56` ou `1.234,56`',
+    example: '189,90',
+  },
+  {
+    name: 'situacao',
+    label: 'Situação',
+    requirement: 'Obrigatória',
+    format: '`realizada` ou `pendente`',
+    example: 'pendente',
+  },
+  {
+    name: 'data_planejada',
+    label: 'Data planejada',
+    requirement: 'Obrigatória',
+    format: 'Data no formato `AAAA-MM-DD`',
+    example: '2026-08-20',
+  },
+  {
+    name: 'data_pagamento',
+    label: 'Data do pagamento',
+    requirement: 'Condicional',
+    format: 'Obrigatória quando `situacao=realizada`; senão, vazia',
+    example: '2026-08-18',
+  },
+  {
+    name: 'valor_realizado',
+    label: 'Valor realizado',
+    requirement: 'Opcional',
+    format: 'Número positivo; vazio quando não houver pagamento parcial',
+    example: '189,90',
+  },
+  {
+    name: 'periodicidade',
+    label: 'Periodicidade',
+    requirement: 'Condicional',
+    format: '`weekly` ou `monthly` somente para `tipo=recorrencia`',
+    example: 'monthly',
+  },
+  {
+    name: 'inicio_recorrencia',
+    label: 'Início da recorrência',
+    requirement: 'Condicional',
+    format: 'Data `AAAA-MM-DD` para recorrências; vazia para transações',
+    example: '2026-08-20',
+  },
+  {
+    name: 'fim_recorrencia',
+    label: 'Fim da recorrência',
+    requirement: 'Opcional',
+    format: 'Data `AAAA-MM-DD`; não use junto com `quantidade_ocorrencias`',
+    example: '2027-08-20',
+  },
+  {
+    name: 'quantidade_ocorrencias',
+    label: 'Quantidade de ocorrências',
+    requirement: 'Opcional',
+    format: 'Número inteiro; não use junto com `fim_recorrencia`',
+    example: '12',
+  },
+];
+
+export const CSV_AI_PROMPT = `Converta os dados financeiros anexados para o modelo CSV do Organizei.
+
+Regras:
+- Mantenha exatamente estes cabeçalhos e nesta ordem: ${CSV_HEADERS.join(';')}
+- Use separador ponto e vírgula (;), uma transação por linha e datas no formato AAAA-MM-DD.
+- Use somente: tipo=transacao ou recorrencia; direcao=income ou expense; situacao=realizada ou pendente; periodicidade=weekly ou monthly.
+- Para recorrências, preencha periodicidade e inicio_recorrencia. Use apenas um entre fim_recorrencia e quantidade_ocorrencias.
+- Para realizadas, preencha data_pagamento. Deixe campos opcionais vazios quando não houver informação.
+- Não invente valores, datas ou recorrências. Liste as ambiguidades antes do CSV.
+- Entregue somente o CSV final depois que as ambiguidades forem resolvidas.`;
+
 export function csvTemplate() {
   return `${CSV_HEADERS.join(';')}\n`;
 }

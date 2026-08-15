@@ -19,10 +19,11 @@ export function CsvImportForm({ spaceId }: { spaceId: string }) {
     if (state.status === 'success') window.location.reload();
   }, [state.status]);
   return (
-    <form action={action} className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+    <form action={action} className="grid gap-4">
       <input type="hidden" name="spaceId" value={spaceId} />
       <label className="grid gap-1 text-sm font-medium">
         Arquivo CSV
+        <span className="text-text-muted font-normal">Até 2 MB, separado por ponto e vírgula.</span>
         <input
           name="file"
           type="file"
@@ -46,7 +47,7 @@ export function CsvImportForm({ spaceId }: { spaceId: string }) {
         />
       </label>
       {preview.count > 0 && preview.errors.length === 0 && (
-        <div className="bg-background grid gap-2 rounded-xl p-3 text-sm sm:col-span-2">
+        <div className="bg-background grid gap-2 rounded-xl p-3 text-sm">
           <p className="font-medium">Prévia ({preview.count} linha(s))</p>
           <ul className="text-text-muted list-inside list-disc">
             {preview.sample.map((item, index) => (
@@ -65,20 +66,20 @@ export function CsvImportForm({ spaceId }: { spaceId: string }) {
         </div>
       )}
       {preview.errors.length > 0 && (
-        <div role="alert" className="text-danger text-sm sm:col-span-2">
+        <div role="alert" className="text-danger text-sm">
           {preview.errors.map((error) => (
             <p key={error}>{error}</p>
           ))}
         </div>
       )}
-      <Button type="submit" disabled={pending || !confirmed} className="min-h-12">
+      <Button type="submit" disabled={pending || !confirmed} className="min-h-12 w-full">
         {pending ? 'Importando…' : 'Importar CSV'}
       </Button>
       {state.message && (
         <p
           role={state.status === 'error' ? 'alert' : 'status'}
           aria-live="polite"
-          className="text-sm sm:col-span-2"
+          className="text-sm"
         >
           {state.message}
         </p>

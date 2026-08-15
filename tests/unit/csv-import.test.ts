@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { csvTemplate, parseCsvMoney, parseFinancialCsv } from '../../apps/web/src/lib/csv-import';
+import {
+  CSV_AI_PROMPT,
+  CSV_FIELD_GUIDE,
+  CSV_HEADERS,
+  csvTemplate,
+  parseCsvMoney,
+  parseFinancialCsv,
+} from '../../apps/web/src/lib/csv-import';
 
 describe('financial CSV import', () => {
   it('provides the documented columns and parses realized payments separately from due dates', () => {
@@ -22,5 +29,19 @@ describe('financial CSV import', () => {
 
   it('parses Brazilian monetary values', () => {
     expect(parseCsvMoney('1.743,00')).toBe(174300);
+  });
+
+  it('keeps the visual guide aligned with every import column', () => {
+    expect(CSV_FIELD_GUIDE.map((field) => field.name)).toEqual([...CSV_HEADERS]);
+    expect(CSV_FIELD_GUIDE.find((field) => field.name === 'data_pagamento')).toMatchObject({
+      requirement: 'Condicional',
+    });
+    expect(CSV_FIELD_GUIDE.find((field) => field.name === 'descricao')?.format).toContain('160');
+  });
+
+  it('provides an AI prompt with the machine-readable import rules', () => {
+    expect(CSV_AI_PROMPT).toContain(CSV_HEADERS.join(';'));
+    expect(CSV_AI_PROMPT).toContain('uma transação por linha');
+    expect(CSV_AI_PROMPT).toContain('Não invente valores');
   });
 });

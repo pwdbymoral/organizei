@@ -13,6 +13,7 @@ import {
 import { hashPassword } from 'better-auth/crypto';
 import { randomUUID } from 'node:crypto';
 import { inArray } from 'drizzle-orm';
+import { csvTemplate } from '../../apps/web/src/lib/csv-import';
 
 test.describe('Financial Vertical Slice E2E Flow', () => {
   let space1Id: string;
@@ -353,6 +354,29 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
         .filter({ hasText: 'Conta de Luz' })
         .getByText('Pendente', { exact: true }),
     ).toBeVisible();
+
+    // CSV import is a secondary action and explains its contract on demand.
+    await pageB.goto('/app/movements');
+    await expect(pageB.getByRole('button', { name: 'Mais ações' })).toBeVisible();
+    await expect(pageB.getByText('Importar transações por CSV')).not.toBeVisible();
+    await pageB.getByRole('button', { name: 'Mais ações' }).click();
+    await pageB.getByRole('menuitem', { name: 'Importar CSV' }).click();
+    await expect(pageB.getByRole('heading', { name: 'Importar transações por CSV' })).toBeVisible();
+    await expect(pageB.getByText('data_pagamento', { exact: true })).toBeVisible();
+    expect(
+      await new AxeBuilder({ page: pageB }).include('[data-slot="sheet-content"]').analyze(),
+    ).toHaveProperty('violations', []);
+    await pageB.locator('input[type="file"]').setInputFiles({
+      name: 'organizei-import.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        `${csvTemplate()}transacao;Importação de teste;expense;1,00;pendente;2099-01-02;;;;;;`,
+      ),
+    });
+    await expect(pageB.getByText('Prévia (1 linha(s))')).toBeVisible();
+    await pageB.getByLabel('Revisei a prévia e quero importar estas linhas.').check();
+    await pageB.getByRole('button', { name: 'Importar CSV' }).click();
+    await expect(pageB.getByText('Importação de teste')).toBeVisible();
 
     // --- Step 8: Login User C (adversary in other space, different context) ---
     const contextC = await browser.newContext();
