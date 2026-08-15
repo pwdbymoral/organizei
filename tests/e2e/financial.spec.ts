@@ -172,8 +172,8 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     // --- Step 2: Confirm new balance ---
     await pageA.goto('/app/balance');
     await expect(pageA.getByRole('heading', { name: 'Saldo', exact: true })).toBeVisible();
-    await pageA.getByLabel('Saldo encontrado agora').fill('100.00');
-    await pageA.getByRole('button', { name: 'Salvar conferência' }).click();
+    await pageA.getByLabel('Saldo real agora').fill('100.00');
+    await pageA.getByRole('button', { name: 'Registrar ajuste' }).click();
     await expect(pageA.getByText('R$ 100,00').first()).toBeVisible();
 
     // --- Step 3: Add transactions (Income and Expense) ---
