@@ -114,6 +114,38 @@ describe('DailyProjectionEngine invariants', () => {
         '2025-04-30',
       ),
     ).toEqual(['2025-01-31', '2025-02-28', '2025-03-31', '2025-04-30']);
+    expect(
+      generateRecurrenceDates(
+        {
+          id: 'limited',
+          seriesId: 'series',
+          version: 1,
+          effectiveFrom: '2025-01-01',
+          description: 'Limitada',
+          direction: 'expense',
+          expectedAmountCents: 100,
+          cadence: 'weekly',
+        },
+        '2025-01-08',
+        2,
+      ),
+    ).toEqual(['2025-01-01', '2025-01-08']);
+    expect(() =>
+      generateRecurrenceDates(
+        {
+          id: 'overflow',
+          seriesId: 'series',
+          version: 1,
+          effectiveFrom: '2025-01-01',
+          description: 'Excedente',
+          direction: 'expense',
+          expectedAmountCents: 100,
+          cadence: 'weekly',
+        },
+        '2025-02-01',
+        2,
+      ),
+    ).toThrow('limite de ocorrências');
   });
 
   it('derives remaining partial-payment balance and rejects overpayment', () => {

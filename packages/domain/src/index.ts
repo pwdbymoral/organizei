@@ -445,7 +445,11 @@ function addCivilMonths(date: string, months: number): string {
 }
 
 /** Generates dates without persisting them; callers materialize only their required horizon. */
-export function generateRecurrenceDates(rule: RecurrenceRuleVersion, horizonEnd: string): string[] {
+export function generateRecurrenceDates(
+  rule: RecurrenceRuleVersion,
+  horizonEnd: string,
+  maxDates?: number,
+): string[] {
   if (
     rule.maxOccurrences !== undefined &&
     rule.maxOccurrences !== null &&
@@ -462,6 +466,9 @@ export function generateRecurrenceDates(rule: RecurrenceRuleVersion, horizonEnd:
         ? addCivilDays(rule.effectiveFrom, (sequence - 1) * 7)
         : addCivilMonths(rule.effectiveFrom, sequence - 1);
     if (current > finalDate) break;
+    if (maxDates !== undefined && dates.length >= maxDates) {
+      throw new Error('A recorrência excede o limite de ocorrências permitido.');
+    }
     dates.push(current);
   }
   return dates;

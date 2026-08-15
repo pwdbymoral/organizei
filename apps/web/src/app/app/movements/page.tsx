@@ -23,7 +23,7 @@ import { remainingAmountCents } from '@organizei/domain';
 import { ConfirmSubmitButton } from '../../../components/confirm-submit-button';
 import { ResponsiveFilters } from '../../../components/responsive-filters';
 import { Button } from '../../../components/ui/button';
-import { CsvImportForm } from '../../../components/csv-import-form';
+import { CsvImportSheet } from '../../../components/csv-import-sheet';
 import { Input } from '../../../components/ui/input';
 import {
   Select,
@@ -124,25 +124,13 @@ export default async function MovementsPage({
               {period.label}
             </span>
           </div>
-          <Button asChild className="w-full sm:w-auto">
-            <Link href="/add">Nova transação</Link>
-          </Button>
-        </div>
-        <section className="border-border bg-surface grid gap-3 rounded-2xl border p-4 sm:p-5">
-          <div>
-            <h2 className="font-semibold">Importar transações</h2>
-            <p className="text-text-muted mt-1 text-sm">
-              Use o modelo para entradas, saídas, recorrências e parcelamentos.
-            </p>
-            <Link
-              href="/api/financial/csv-template"
-              className="text-primary mt-2 inline-flex min-h-10 items-center text-sm font-semibold"
-            >
-              Baixar modelo CSV
-            </Link>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <CsvImportSheet spaceId={spaceId} />
+            <Button asChild className="w-full sm:w-auto">
+              <Link href="/add">Nova transação</Link>
+            </Button>
           </div>
-          <CsvImportForm spaceId={spaceId} />
-        </section>
+        </div>
         <nav aria-label="Período das transações" className="flex flex-wrap items-center gap-2">
           <Button
             asChild

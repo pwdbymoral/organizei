@@ -18,7 +18,7 @@ import {
   toCivilDate,
   type RecurrenceCadence,
 } from '@organizei/domain';
-import { parseCsvMoney, parseFinancialCsv } from './csv-import';
+import { MAX_CSV_GENERATED_MOVEMENTS, parseCsvMoney, parseFinancialCsv } from './csv-import';
 
 const MAX_CENTS = 2_147_483_647;
 const CIVIL_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -312,13 +312,14 @@ export async function importFinancialCsvCore(
   userId: string,
   today: string,
 ) {
+  await verifyMembership(spaceId, userId);
   const parsed = parseFinancialCsv(csv);
   if (parsed.errors.length) throw new Error(parsed.errors.join(' '));
   assertCivilDate(today, 'Hoje');
-  await verifyMembership(spaceId, userId);
 
   return db.transaction(async (tx) => {
     let imported = 0;
+    let generatedMovements = 0;
     for (const row of parsed.rows) {
       const expectedAmountCents = parseCsvMoney(row.valor);
       const realizedAmountCents = row.valor_realizado
@@ -329,6 +330,11 @@ export async function importFinancialCsvCore(
       if (realized && row.data_pagamento > today)
         throw new Error('Data de pagamento não pode ser futura.');
       if (row.tipo === 'transacao') {
+        generatedMovements += 1;
+        if (generatedMovements > MAX_CSV_GENERATED_MOVEMENTS)
+          throw new Error(
+            `O CSV pode gerar no máximo ${MAX_CSV_GENERATED_MOVEMENTS} movimentações.`,
+          );
         const [movement] = await tx
           .insert(financialMovement)
           .values({
@@ -397,7 +403,9 @@ export async function importFinancialCsvCore(
             ...rule,
           },
           row.fim_recorrencia || horizon.toISOString().slice(0, 10),
+          MAX_CSV_GENERATED_MOVEMENTS - generatedMovements,
         );
+        generatedMovements += dates.length;
         for (const [index, date] of dates.entries()) {
           const [occurrence] = await tx
             .insert(financialMovement)
