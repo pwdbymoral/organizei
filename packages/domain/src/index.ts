@@ -114,7 +114,10 @@ function eventIsAfterBalanceAnchor(
   const effectiveAt = balanceEffectiveAt(balance);
   const effectiveDate = toCivilDate(effectiveAt);
   if (!('effectiveAt' in balance) && date === effectiveDate && !allowSameDay) return false;
-  return date > effectiveDate || (date === effectiveDate && Boolean(createdAt && createdAt > effectiveAt));
+  return (
+    date > effectiveDate ||
+    (date === effectiveDate && Boolean(createdAt && createdAt > effectiveAt))
+  );
 }
 
 function addSignedAmount(current: number, direction: Direction, amount: number) {
@@ -164,7 +167,12 @@ export function calculateCurrentBalanceCents(
     if (
       movement.status === 'realized' &&
       movement.realizedDate &&
-      eventIsAfterBalanceAnchor(openingBalance, movement.realizedDate, movement.createdAt, balanceMode) &&
+      eventIsAfterBalanceAnchor(
+        openingBalance,
+        movement.realizedDate,
+        movement.createdAt,
+        balanceMode,
+      ) &&
       movement.realizedDate <= currentCivilDate
     ) {
       current = addSignedAmount(
@@ -262,7 +270,6 @@ export function calculateDailyProjection(
   horizonDays: number,
   balanceMode?: BalanceMode,
 ): ProjectionResult {
-
   // Create horizon dates
   const days: DailyProjection[] = [];
   const start = new Date(`${currentCivilDate}T00:00:00Z`);
@@ -288,7 +295,9 @@ export function calculateDailyProjection(
 
     if (mov.status === 'realized') {
       if (!mov.realizedDate) continue; // invalid state, but defensive
-      if (!eventIsAfterBalanceAnchor(openingBalance, mov.realizedDate, mov.createdAt, balanceMode)) {
+      if (
+        !eventIsAfterBalanceAnchor(openingBalance, mov.realizedDate, mov.createdAt, balanceMode)
+      ) {
         continue;
       }
       effectiveDate = mov.realizedDate;

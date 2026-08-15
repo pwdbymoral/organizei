@@ -34,10 +34,7 @@ export async function requireAuth() {
   return session.user;
 }
 
-export async function confirmBalance(
-  spaceId: string,
-  amountCents: number,
-) {
+export async function confirmBalance(spaceId: string, amountCents: number) {
   const user = await requireAuth();
   return createOpeningBalanceCore(spaceId, amountCents, user.id);
 }

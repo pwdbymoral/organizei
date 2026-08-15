@@ -29,9 +29,9 @@ export function OnboardingForm() {
         required
         autoFocus
       />
-      <p className="text-text-muted rounded-2xl border border-border bg-background p-4 text-sm">
-        Este valor será a base do seu caixa familiar. Movimentações antigas continuam disponíveis
-        no histórico e novos registros atualizam o saldo automaticamente.
+      <p className="text-text-muted border-border bg-background rounded-2xl border p-4 text-sm">
+        Este valor será a base do seu caixa familiar. Movimentações antigas continuam disponíveis no
+        histórico e novos registros atualizam o saldo automaticamente.
       </p>
       <div className="border-border bg-background rounded-2xl border p-4">
         <label className="flex items-start gap-3 text-sm" htmlFor="registrationReminder">

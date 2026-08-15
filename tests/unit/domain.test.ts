@@ -69,7 +69,14 @@ describe('DailyProjectionEngine invariants', () => {
       updatedAt: new Date('2025-01-09T12:00:00Z'),
       version: 1,
     };
-    const afterOpening = { ...historical, id: 'after', realizedDate: '2025-01-10', plannedDate: '2025-01-10', createdAt: new Date('2025-01-10T16:00:00Z'), updatedAt: new Date('2025-01-10T16:00:00Z') };
+    const afterOpening = {
+      ...historical,
+      id: 'after',
+      realizedDate: '2025-01-10',
+      plannedDate: '2025-01-10',
+      createdAt: new Date('2025-01-10T16:00:00Z'),
+      updatedAt: new Date('2025-01-10T16:00:00Z'),
+    };
 
     expect(
       calculateCurrentBalanceCents(opening, '2025-01-10', [historical, afterOpening], []),
