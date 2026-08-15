@@ -8,7 +8,7 @@ import {
   familyMembership,
   financialMovement,
   financialPayment,
-  confirmedBalance,
+  openingBalance,
 } from '../../packages/database/src/index';
 import { hashPassword } from 'better-auth/crypto';
 import { randomUUID } from 'node:crypto';
@@ -85,22 +85,18 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
       { id: randomUUID(), spaceId: space1Id, userId: userBId, role: 'member' },
       { id: randomUUID(), spaceId: space2Id, userId: userCId, role: 'admin' },
     ]);
-    await db.insert(confirmedBalance).values([
+    await db.insert(openingBalance).values([
       {
-        id: randomUUID(),
         spaceId: space1Id,
         amountCents: 0,
-        balanceMode: 'confirmed_checkpoint',
+        effectiveAt: new Date(),
         authorId: userAId,
-        confirmedAt: new Date(),
       },
       {
-        id: randomUUID(),
         spaceId: space2Id,
         amountCents: 0,
-        balanceMode: 'confirmed_checkpoint',
+        effectiveAt: new Date(),
         authorId: userCId,
-        confirmedAt: new Date(),
       },
     ]);
   });
@@ -176,8 +172,8 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     // --- Step 2: Confirm new balance ---
     await pageA.goto('/app/balance');
     await expect(pageA.getByRole('heading', { name: 'Saldo', exact: true })).toBeVisible();
-    await pageA.getByLabel('Saldo encontrado agora').fill('100.00');
-    await pageA.getByRole('button', { name: 'Salvar conferência' }).click();
+    await pageA.getByLabel('Saldo real agora').fill('100.00');
+    await pageA.getByRole('button', { name: 'Registrar ajuste' }).click();
     await expect(pageA.getByText('R$ 100,00').first()).toBeVisible();
 
     // --- Step 3: Add transactions (Income and Expense) ---

@@ -214,6 +214,23 @@ export const confirmedBalance = pgTable(
   ],
 );
 
+/** Current product contract: one real opening balance per family space. */
+export const openingBalance = pgTable(
+  'opening_balances',
+  {
+    spaceId: text('space_id')
+      .primaryKey()
+      .references(() => familySpace.id, { onDelete: 'cascade' }),
+    amountCents: integer('amount_cents').notNull(),
+    effectiveAt: timestamp('effective_at', { withTimezone: true }).notNull(),
+    authorId: text('author_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    createdAt,
+  },
+  (table) => [check('opening_balance_amount_nonnegative', sql`${table.amountCents} >= 0`)],
+);
+
 export const movementDirectionEnum = pgEnum('movement_direction', ['income', 'expense']);
 export const movementStatusEnum = pgEnum('movement_status', ['pending', 'realized', 'canceled']);
 export const recurrenceCadenceEnum = pgEnum('recurrence_cadence', ['weekly', 'monthly']);

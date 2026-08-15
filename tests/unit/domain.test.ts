@@ -8,6 +8,7 @@ import {
   calculateMonthlyProjection,
   generateRecurrenceDates,
   remainingAmountCents,
+  type OpeningBalance,
   type ConfirmedBalance,
 } from '../../packages/domain/src/index';
 
@@ -44,6 +45,44 @@ const validMovementArb = fc.record({
 });
 
 describe('DailyProjectionEngine invariants', () => {
+  it('uses the real opening balance and ignores historical events before it', () => {
+    const opening: OpeningBalance = {
+      spaceId: 'space-1',
+      amountCents: 10_000,
+      effectiveAt: new Date('2025-01-10T15:00:00Z'),
+      authorId: 'user-1',
+      createdAt: new Date('2025-01-10T15:00:00Z'),
+    };
+    const historical = {
+      id: 'historical',
+      spaceId: 'space-1',
+      description: 'Histórico',
+      direction: 'expense' as const,
+      expectedAmountCents: 5_000,
+      plannedDate: '2025-01-09',
+      status: 'realized' as const,
+      realizedAmountCents: 5_000,
+      realizedDate: '2025-01-09',
+      createdBy: 'user-1',
+      updatedBy: 'user-1',
+      createdAt: new Date('2025-01-09T12:00:00Z'),
+      updatedAt: new Date('2025-01-09T12:00:00Z'),
+      version: 1,
+    };
+    const afterOpening = {
+      ...historical,
+      id: 'after',
+      realizedDate: '2025-01-10',
+      plannedDate: '2025-01-10',
+      createdAt: new Date('2025-01-10T16:00:00Z'),
+      updatedAt: new Date('2025-01-10T16:00:00Z'),
+    };
+
+    expect(
+      calculateCurrentBalanceCents(opening, '2025-01-10', [historical, afterOpening], []),
+    ).toBe(5_000);
+  });
+
   it('generates weekly and month-end recurrence dates within limits', () => {
     const weekly = generateRecurrenceDates(
       {

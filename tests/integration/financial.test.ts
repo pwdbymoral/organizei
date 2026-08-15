@@ -527,7 +527,7 @@ describe('Financial Domain Integration', () => {
       }),
     ).toHaveLength(0);
     expect(
-      await db.query.confirmedBalance.findMany({
+      await db.query.openingBalance.findMany({
         where: (table, { eq }) => eq(table.spaceId, space2),
       }),
     ).toHaveLength(0);
