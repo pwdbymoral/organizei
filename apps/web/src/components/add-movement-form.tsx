@@ -125,7 +125,11 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
         </div>
       </div>
 
-      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="border-border rounded-2xl border">
+      <Collapsible
+        open={advancedOpen}
+        onOpenChange={setAdvancedOpen}
+        className="border-border rounded-2xl border"
+      >
         <CollapsibleTrigger asChild>
           <Button type="button" variant="ghost" className="min-h-12 w-full justify-between px-4">
             <span>Mais opções</span>
@@ -193,7 +197,12 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
             {cadence !== 'once' && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Até esta data (opcional)" htmlFor="effectiveUntil">
-                  <Input id="effectiveUntil" name="effectiveUntil" type="date" className={inputClass} />
+                  <Input
+                    id="effectiveUntil"
+                    name="effectiveUntil"
+                    type="date"
+                    className={inputClass}
+                  />
                 </Field>
                 <Field label="Ou quantidade de vezes" htmlFor="maxOccurrences">
                   <Input
@@ -225,7 +234,12 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
         </p>
       )}
       <div className="flex flex-wrap gap-3 pt-2">
-        <Button type="button" onClick={() => router.replace('/app')} variant="outline" className="flex-1">
+        <Button
+          type="button"
+          onClick={() => router.replace('/app')}
+          variant="outline"
+          className="flex-1"
+        >
           Voltar ao início
         </Button>
         <Button type="submit" disabled={pending} className="flex-1">
@@ -236,7 +250,15 @@ export function AddMovementForm({ spaceId }: { spaceId: string }) {
   );
 }
 
-function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
+function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="grid gap-1 text-sm font-medium" htmlFor={htmlFor}>
       {label}
