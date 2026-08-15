@@ -17,6 +17,8 @@ A fase 1 bloqueia as fases 2 e 3. As fases 2 e 3 podem ser desenvolvidas em para
 
 Fases 1 e 2 possuem implementação e testes focados concluídos nas branches correspondentes. A integração E2E continua sendo gate antes da integração de cada branch.
 
+Fase 3: implementação e testes focados concluídos nesta branch. A integração E2E continua sendo gate antes da integração da branch.
+
 ## Invariantes
 
 - O espaço possui um caixa familiar único e consolidado.

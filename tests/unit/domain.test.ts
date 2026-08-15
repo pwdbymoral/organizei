@@ -412,6 +412,19 @@ describe('DailyProjectionEngine invariants', () => {
     expect(result).toHaveLength(12);
     expect(result[0]).toMatchObject({ month: '2025-01', balanceCents: 1_000 });
   });
+
+  it('supports a full-year daily forecast without truncating the horizon', () => {
+    const opening: OpeningBalance = {
+      spaceId: 'space-1',
+      amountCents: 10_000,
+      effectiveAt: new Date('2025-01-01T12:00:00Z'),
+      authorId: 'user-1',
+      createdAt: new Date('2025-01-01T12:00:00Z'),
+    };
+    const result = calculateDailyProjection(opening, '2025-01-01', [], 365);
+    expect(result.daily).toHaveLength(365);
+    expect(result.daily.at(-1)?.date).toBe('2025-12-31');
+  });
   it('applies overdue pending movements today and avoids duplicating realizations in a checkpoint', () => {
     const balance: ConfirmedBalance = {
       spaceId: 'space-1',

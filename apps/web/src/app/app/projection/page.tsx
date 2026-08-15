@@ -28,12 +28,25 @@ export default async function ProjectionPage({
   const data = await getDashboardData(membership.spaceId, session.user.id);
   if (!data.lastBalance) redirect('/onboarding');
   const requested = Number((await searchParams)?.days);
-  const days = [7, 14, 30].includes(requested) ? requested : 14;
-  const chartData = data.projection.daily.slice(0, days).map((point) => ({
+  const days = [30, 90, 180, 365].includes(requested) ? requested : 30;
+  const dailyData = data.projection.daily.slice(0, days);
+  const chartData = dailyData.slice(0, 30).map((point) => ({
     date: point.date,
     label: fmtDate(point.date).slice(0, 5),
     balanceCents: point.balanceCents,
   }));
+  const monthlyData = data.monthlyProjection.slice(0, monthsForDays(days));
+  const longHorizon = days > 30;
+  const lowest = lowestPoint(dailyData);
+  const firstNegative = dailyData.find((point) => point.balanceCents < 0) ?? null;
+  const widestMonth = monthlyData.reduce(
+    (best, point) => (!best || point.balanceCents > best.balanceCents ? point : best),
+    null as (typeof monthlyData)[number] | null,
+  );
+  const tightestMonth = monthlyData.reduce(
+    (best, point) => (!best || point.balanceCents < best.balanceCents ? point : best),
+    null as (typeof monthlyData)[number] | null,
+  );
   return (
     <main className="bg-background text-text min-h-screen pb-28 sm:pb-10">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-8 sm:py-8">
@@ -48,35 +61,53 @@ export default async function ProjectionPage({
             <div>
               <p className="text-text-muted text-sm">Saldo estimado em {days} dias</p>
               <p className="mt-1 text-3xl font-semibold">
-                {fmtMoney(chartData[chartData.length - 1]?.balanceCents ?? 0)}
+                {fmtMoney(dailyData[dailyData.length - 1]?.balanceCents ?? 0)}
               </p>
             </div>
             <ProjectionRangeSelector days={days} />
           </div>
-          <ForecastChart data={chartData} />
-          <p className="text-text-muted mt-3 text-sm">
-            A linha mostra o saldo previsto dia a dia. A linha zero ajuda a identificar quando os
-            compromissos ultrapassam o caixa.
-          </p>
+          {longHorizon ? (
+            <MonthlyProjectionSection data={monthlyData} />
+          ) : (
+            <>
+              <ForecastChart data={chartData} />
+              <p className="text-text-muted mt-3 text-sm">
+                A linha mostra o saldo previsto dia a dia. A linha zero ajuda a identificar quando
+                os compromissos ultrapassam o caixa.
+              </p>
+            </>
+          )}
         </section>
-        <ProjectionScenario data={chartData} />
-        <section className="grid gap-4 sm:grid-cols-3">
+        <ProjectionScenario data={dailyData} />
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <article className="border-border bg-surface rounded-2xl border p-5">
             <p className="text-text-muted text-sm">Menor saldo nos próximos {days} dias</p>
-            <p className="mt-2 text-xl font-semibold">{fmtMoney(lowestBalance(chartData))}</p>
+            <p className="mt-2 text-xl font-semibold">{fmtMoney(lowest?.balanceCents ?? 0)}</p>
             <p className="text-text-muted mt-1 text-xs">
-              {lowestDate(chartData) ? fmtDate(lowestDate(chartData)!) : 'Sem dados'}
+              {lowest ? fmtDate(lowest.date) : 'Sem dados'}
             </p>
           </article>
           <article className="border-border bg-surface rounded-2xl border p-5">
-            <p className="text-text-muted text-sm">Primeiro dia negativo</p>
+            <p className="text-text-muted text-sm">Primeiro período negativo</p>
             <p className="mt-2 text-xl font-semibold">
-              {chartData.find((point) => point.balanceCents < 0)
-                ? fmtDate(chartData.find((point) => point.balanceCents < 0)!.date)
-                : 'Não previsto'}
+              {firstNegative ? fmtDate(firstNegative.date) : 'Não previsto'}
             </p>
           </article>
           <article className="border-border bg-surface rounded-2xl border p-5">
+            <p className="text-text-muted text-sm">Maior folga mensal</p>
+            <p className="mt-2 text-xl font-semibold">
+              {widestMonth ? fmtMoney(widestMonth.balanceCents) : 'Sem dados'}
+            </p>
+            <p className="text-text-muted mt-1 text-xs">{widestMonth?.month ?? ''}</p>
+          </article>
+          <article className="border-border bg-surface rounded-2xl border p-5">
+            <p className="text-text-muted text-sm">Mês mais apertado</p>
+            <p className="mt-2 text-xl font-semibold">
+              {tightestMonth ? fmtMoney(tightestMonth.balanceCents) : 'Sem dados'}
+            </p>
+            <p className="text-text-muted mt-1 text-xs">{tightestMonth?.month ?? ''}</p>
+          </article>
+          <article className="border-border bg-surface rounded-2xl border p-5 sm:col-span-2 lg:col-span-4">
             <p className="text-text-muted text-sm">Saldo atual</p>
             <p className="mt-2 text-xl font-semibold">
               {fmtMoney(data.cashSummary.currentBalanceCents)}
@@ -84,24 +115,21 @@ export default async function ProjectionPage({
             <p className="text-text-muted mt-1 text-xs">Base usada para esta previsão.</p>
           </article>
         </section>
-        <MonthlyProjectionSection data={data.monthlyProjection} />
+        {!longHorizon && <MonthlyProjectionSection data={data.monthlyProjection} />}
       </div>
     </main>
   );
 }
 
-function lowestBalance(data: { balanceCents: number }[]) {
-  return data.reduce(
-    (lowest, point) => Math.min(lowest, point.balanceCents),
-    data[0]?.balanceCents ?? 0,
-  );
-}
-
-function lowestDate(data: { date: string; balanceCents: number }[]) {
+function lowestPoint(data: { date: string; balanceCents: number }[]) {
   return data.reduce<{ date: string; balanceCents: number } | null>(
     (lowest, point) => (!lowest || point.balanceCents < lowest.balanceCents ? point : lowest),
     null,
-  )?.date;
+  );
+}
+
+function monthsForDays(days: number) {
+  return Math.min(13, Math.ceil(days / 30) + 1);
 }
 
 async function dbMembership(userId: string) {

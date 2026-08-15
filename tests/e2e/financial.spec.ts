@@ -211,6 +211,15 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     await expect(pageA.getByText('R$ 150,00').first()).toBeVisible();
     await expect(pageA.getByText('Conta de Luz')).toBeVisible();
 
+    // Forecast offers a short daily view and long monthly horizons.
+    await pageA.goto('/app/projection');
+    await expect(pageA.getByRole('heading', { name: 'Previsão' })).toBeVisible();
+    await expect(pageA.getByRole('radio', { name: '30 dias' })).toBeVisible();
+    await pageA.getByRole('radio', { name: '90 dias' }).click();
+    await expect(pageA).toHaveURL(/days=90/);
+    await expect(pageA.getByText('Maior folga mensal')).toBeVisible();
+    await pageA.getByLabel('Quando?').fill(today);
+
     // Timeline search accepts description and Brazilian currency values without changing projections.
     await pageA.goto('/app/movements?q=50%2C00');
     await pageA.getByLabel('Buscar descrição ou valor').fill('50,00');
