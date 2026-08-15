@@ -403,12 +403,9 @@ export async function importFinancialCsvCore(
             ...rule,
           },
           row.fim_recorrencia || horizon.toISOString().slice(0, 10),
+          MAX_CSV_GENERATED_MOVEMENTS - generatedMovements,
         );
         generatedMovements += dates.length;
-        if (generatedMovements > MAX_CSV_GENERATED_MOVEMENTS)
-          throw new Error(
-            `O CSV pode gerar no máximo ${MAX_CSV_GENERATED_MOVEMENTS} movimentações.`,
-          );
         for (const [index, date] of dates.entries()) {
           const [occurrence] = await tx
             .insert(financialMovement)

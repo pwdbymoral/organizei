@@ -194,6 +194,7 @@ function userFacingError(error: unknown): FinancialFormState {
     'A nova data deve manter a ordem das ocorrências.',
     'A ocorrência deve pertencer ao futuro da série.',
     'O CSV pode gerar no máximo 5000 movimentações.',
+    'A recorrência excede o limite de ocorrências permitido.',
   ];
   return {
     status: 'error',
