@@ -214,8 +214,8 @@ test.describe('Financial Vertical Slice E2E Flow', () => {
     // Forecast offers a short daily view and long monthly horizons.
     await pageA.goto('/app/projection');
     await expect(pageA.getByRole('heading', { name: 'Previsão' })).toBeVisible();
-    await expect(pageA.getByRole('button', { name: '30 dias' })).toBeVisible();
-    await pageA.getByRole('button', { name: '90 dias' }).click();
+    await expect(pageA.getByRole('radio', { name: '30 dias' })).toBeVisible();
+    await pageA.getByRole('radio', { name: '90 dias' }).click();
     await expect(pageA).toHaveURL(/days=90/);
     await expect(pageA.getByText('Maior folga mensal')).toBeVisible();
     await pageA.getByLabel('Quando?').fill(today);
